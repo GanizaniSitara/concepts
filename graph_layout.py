@@ -13,14 +13,13 @@ import numpy as np
 import pandas as pd
 
 
-# ------------------------------------------------------------------
-# CONSTANTS (overridable via CLI)
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
+# CONSTANTS
+# ───────────────────────────────────────────────────────────────
 DEFAULT_JSON_OUT = Path(r"C:\Solutions\JavaScript\HexMap\src\data.json")
 DEFAULT_PNG_OUT = Path("graph.png")
 
-# reserved for future status colouring
-RAG_PALETTE = ["#e31a1c", "#ff7f00", "#33a02c"]
+RAG_PALETTE = ["#e31a1c", "#ff7f00", "#33a02c"]  # reserved for status
 
 CLUSTER_BASE_PALETTE = [
     "#1f78b4", "#6a3d9a", "#a6cee3", "#b2df8a",
@@ -31,9 +30,9 @@ SQRT3 = math.sqrt(3)
 HEX_DIRS = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
 
 
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 # DATA LOADING
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 def load_edges_from_excel(path, sheet,
                           source_col="Source Application",
                           target_col="Target Application",
@@ -49,9 +48,9 @@ def load_edges_from_sample():
     return sample_edges
 
 
-# ------------------------------------------------------------------
-# GRAPH + LAYOUT
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
+# GRAPH BUILD
+# ───────────────────────────────────────────────────────────────
 def build_graph(edges):
     g = nx.DiGraph()
     for s, t, w in edges:
@@ -59,72 +58,56 @@ def build_graph(edges):
     return g
 
 
-def compute_layout(g, layout="spring", k=0.15, seed=42):
+# ───────────────────────────────────────────────────────────────
+# LAYOUTS
+# ───────────────────────────────────────────────────────────────
+def simple_layout(g, layout="spring", k=0.15, seed=42):
     if layout == "kamada_kawai":
-        return nx.kamada_kawai_layout(g, weight="weight")
+        return nx.kamada_kawai_layout(g, weight="weight", scale=1.0)
     if layout == "shell":
         return nx.shell_layout(g)
-    # spring layout: k ↓  -> tighter cluster
     return nx.spring_layout(g, weight="weight", seed=seed, k=k, scale=1.0)
 
 
-# ---------------------------------------------------------------
-# HIERARCHICAL LAYOUT  (cluster centres far apart, internals tight)
-# ---------------------------------------------------------------
-def hierarchical_layout(G, layout="kamada_kawai",
-                        internal_k=0.05,        # tighter inside cluster
-                        cluster_k=1.5,           # looser between clusters
-                        seed=42):
-    """
-    Return a dict {node: (x, y)} where clusters are clearly separated.
-    """
-    # 1️⃣  detect communities
+def hierarchical_layout(g, meta_layout="kamada_kawai",
+                        internal_k=0.05, cluster_k=1.5, seed=42):
     communities = nx.algorithms.community.greedy_modularity_communities(
-        G.to_undirected(), weight="weight")
+        g.to_undirected(), weight="weight")
     clusters = [list(c) for c in communities]
 
-    # 2️⃣  build meta‑graph
     meta = nx.Graph()
     for idx, nodes in enumerate(clusters):
         meta.add_node(idx, members=nodes)
-
-    # add weighted edges between clusters
-    for u, v, w in G.edges(data="weight"):
+    for u, v, w in g.edges(data="weight"):
         cu = next(i for i, c in enumerate(clusters) if u in c)
         cv = next(i for i, c in enumerate(clusters) if v in c)
         if cu == cv:
             continue
         meta.add_edge(cu, cv, weight=w + meta.get_edge_data(cu, cv, {}).get("weight", 0))
 
-    # 3️⃣  layout meta‑graph (cluster centres)
-    if layout == "spring":
+    if meta_layout == "spring":
         centre_pos = nx.spring_layout(meta, weight="weight",
                                       seed=seed, k=cluster_k, scale=1.0)
-    else:  # kamada_kawai default
+    else:
         centre_pos = nx.kamada_kawai_layout(meta, weight="weight", scale=1.0)
 
-    # 4️⃣  layout each cluster internally, then translate
     pos = {}
     rng = np.random.default_rng(seed)
     for idx, nodes in enumerate(clusters):
-        sub = G.subgraph(nodes)
-        if layout == "spring":
-            local = nx.spring_layout(sub, weight="weight",
-                                     seed=rng.integers(0, 1000000),
-                                     k=internal_k, scale=0.3)
-        else:
-            local = nx.kamada_kawai_layout(sub, weight="weight", scale=0.3)
-
+        sub = g.subgraph(nodes)
+        seed_val = int(rng.integers(0, 1_000_000))  # ensure built‑in int
+        local = nx.spring_layout(sub, weight="weight",
+                                 seed=seed_val,
+                                 k=internal_k, scale=0.3)
         cx, cy = centre_pos[idx]
         for n, (x, y) in local.items():
             pos[n] = (cx + x, cy + y)
-
     return pos
 
 
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 # HEX HELPERS
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 def to_axial(x, y, size):
     q = (SQRT3 / 3 * x - y / 3) / size
     r = (2 * y / 3) / size
@@ -189,9 +172,6 @@ def resolve_collisions(coords):
 
 
 def layout_to_hex(pos, base_size=1.5, max_iter=25):
-    """
-    base_size ↑  ->  tighter hex map
-    """
     xs, ys = zip(*pos.values())
     xs = np.array(xs) - np.mean(xs)
     ys = np.array(ys) - np.mean(ys)
@@ -203,13 +183,13 @@ def layout_to_hex(pos, base_size=1.5, max_iter=25):
             coords[n] = cube_round(qf, rf)
         if max(Counter(coords.values()).values()) == 1:
             return coords
-        size *= 0.8  # shrink if collisions remain
+        size *= 0.8
     return resolve_collisions(coords)
 
 
-# ------------------------------------------------------------------
-# CLUSTERING & COLOURS
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
+# COLOURS & CLUSTERS
+# ───────────────────────────────────────────────────────────────
 def detect_clusters(g):
     comms = nx.algorithms.community.greedy_modularity_communities(
         g.to_undirected(), weight="weight")
@@ -223,9 +203,9 @@ def extend_palette(n):
     return [cm.colors.rgb2hex(cmap(i)) for i in range(n)]
 
 
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 # JSON BUILD
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 def strength_from_weight(w):
     if w >= 500:
         return "high"
@@ -244,27 +224,32 @@ def cluster_label_position(cluster_coords, all_coords):
     return {"q": cq + dq, "r": cr + dr}
 
 
-def build_hexmap_json(coords, edges, clusters):
+def build_hexmap_json(coords, edges, clusters, indicator_threshold):
     palette = extend_palette(len(clusters))
     conn_map = {n: [] for n in coords}
+    deg_map = Counter()
     for s, t, w in edges:
         conn_map[s].append({"to": t, "type": "link",
                             "strength": strength_from_weight(w)})
+        deg_map[s] += 1
+        deg_map[t] += 1
 
     all_coords = list(coords.values())
     clusters_json = []
     for idx, nodes in enumerate(clusters, start=1):
         col = palette[idx - 1]
-        apps = [{
-            "id": n,
-            "name": n,
-            "description": "",
-            "color": col,
-            "gridPosition": {"q": coords[n][0], "r": coords[n][1]},
-            "showPositionIndicator": True,
-            "connections": conn_map[n],
-            "status": 100
-        } for n in nodes]
+        apps = []
+        for n in nodes:
+            apps.append({
+                "id": n,
+                "name": n,
+                "description": "",
+                "color": col,
+                "gridPosition": {"q": coords[n][0], "r": coords[n][1]},
+                "showPositionIndicator": deg_map[n] >= indicator_threshold,
+                "connections": conn_map[n],
+                "status": 100
+            })
 
         label_pos = cluster_label_position(
             [coords[n] for n in nodes], all_coords)
@@ -283,12 +268,12 @@ def build_hexmap_json(coords, edges, clusters):
     return {"clusters": clusters_json}
 
 
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 # PNG DEBUG VISUAL
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 def save_png(g, pos, png_path):
     w = nx.get_edge_attributes(g, "weight")
-    max_w = max(w.values())
+    max_w = max(w.values()) if w else 1
     widths = [0.5 + 4 * wt / max_w for wt in w.values()]
     plt.figure(figsize=(12, 8))
     nx.draw_networkx_edges(g, pos, width=widths, alpha=0.6, edge_color="grey")
@@ -301,44 +286,46 @@ def save_png(g, pos, png_path):
     plt.close()
 
 
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 # MAIN
-# ------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--excel", help="Path to Excel file")
     parser.add_argument("--sheet", help="Sheet name")
-    parser.add_argument("--layout", default="spring",
-                        choices=["spring", "kamada_kawai", "shell"])
-    parser.add_argument("--spring-k", type=float, default=0.15,
-                        help="Lower value → tighter initial spring layout")
-    parser.add_argument("--hex-size", type=float, default=20,
-                        help="Higher value → tighter hex‑grid projection")
-    parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT,
-                        help="Output path for HexMap JSON")
-    parser.add_argument("--png-out", type=Path, default=DEFAULT_PNG_OUT,
-                        help="Debug PNG path")
+    parser.add_argument("--layout", default="hierarchical",
+                        choices=["spring", "kamada_kawai", "shell", "hierarchical"])
+    parser.add_argument("--spring-k", type=float, default=0.15)
+    parser.add_argument("--cluster-k", type=float, default=1.5)
+    parser.add_argument("--internal-k", type=float, default=0.05)
+    parser.add_argument("--hex-size", type=float, default=1.5)
+    parser.add_argument("--indicator-threshold", type=int, default=15)
+    parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
+    parser.add_argument("--png-out", type=Path, default=DEFAULT_PNG_OUT)
     parser.add_argument("--no-png", action="store_true")
     args = parser.parse_args()
 
     edges = (load_edges_from_excel(args.excel, args.sheet)
              if args.excel and args.sheet else load_edges_from_sample())
-
     g = build_graph(edges)
-    # pos = compute_layout(g, layout=args.layout, k=args.spring_k)
-    pos = hierarchical_layout(
-        g,
-        layout="kamada_kawai",  # or "spring"
-        internal_k=0.05,  # tight inside clusters
-        cluster_k=1.5  # spacious between clusters
-    )
+
+    if args.layout == "hierarchical":
+        pos = hierarchical_layout(
+            g,
+            meta_layout="kamada_kawai",
+            internal_k=args.internal_k,
+            cluster_k=args.cluster_k
+        )
+    else:
+        pos = simple_layout(g, layout=args.layout, k=args.spring_k)
 
     if not args.no_png:
         save_png(g, pos, args.png_out)
 
     coords = layout_to_hex(pos, base_size=args.hex_size)
     clusters = detect_clusters(g)
-    data = build_hexmap_json(coords, edges, clusters)
+    data = build_hexmap_json(coords, edges, clusters,
+                             indicator_threshold=args.indicator_threshold)
 
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(json.dumps(data, indent=2), encoding="utf-8")
