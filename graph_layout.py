@@ -95,10 +95,9 @@ def hierarchical_layout(g, meta_layout="kamada_kawai",
     rng = np.random.default_rng(seed)
     for idx, nodes in enumerate(clusters):
         sub = g.subgraph(nodes)
-        seed_val = int(rng.integers(0, 1_000_000))  # ensure built‑in int
+        seed_val = int(rng.integers(0, 1_000_000))
         local = nx.spring_layout(sub, weight="weight",
-                                 seed=seed_val,
-                                 k=internal_k, scale=0.3)
+                                 seed=seed_val, k=internal_k, scale=0.3)
         cx, cy = centre_pos[idx]
         for n, (x, y) in local.items():
             pos[n] = (cx + x, cy + y)
@@ -224,15 +223,16 @@ def cluster_label_position(cluster_coords, all_coords):
     return {"q": cq + dq, "r": cr + dr}
 
 
-def build_hexmap_json(coords, edges, clusters, indicator_threshold):
+def build_hexmap_json(coords, edges, clusters, graph, indicator_threshold):
     palette = extend_palette(len(clusters))
+
+    # degree of each node (undirected)
+    deg_map = dict(graph.degree())
+
     conn_map = {n: [] for n in coords}
-    deg_map = Counter()
     for s, t, w in edges:
         conn_map[s].append({"to": t, "type": "link",
                             "strength": strength_from_weight(w)})
-        deg_map[s] += 1
-        deg_map[t] += 1
 
     all_coords = list(coords.values())
     clusters_json = []
@@ -240,16 +240,18 @@ def build_hexmap_json(coords, edges, clusters, indicator_threshold):
         col = palette[idx - 1]
         apps = []
         for n in nodes:
-            apps.append({
+            app = {
                 "id": n,
                 "name": n,
                 "description": "",
                 "color": col,
                 "gridPosition": {"q": coords[n][0], "r": coords[n][1]},
-                "showPositionIndicator": deg_map[n] >= indicator_threshold,
                 "connections": conn_map[n],
                 "status": 100
-            })
+            }
+            if deg_map.get(n, 0) >= indicator_threshold:
+                app["showPositionIndicator"] = True
+            apps.append(app)
 
         label_pos = cluster_label_position(
             [coords[n] for n in nodes], all_coords)
@@ -298,7 +300,7 @@ def main():
     parser.add_argument("--spring-k", type=float, default=0.15)
     parser.add_argument("--cluster-k", type=float, default=1.5)
     parser.add_argument("--internal-k", type=float, default=0.05)
-    parser.add_argument("--hex-size", type=float, default=1.5)
+    parser.add_argument("--hex-size", type=float, default=3)
     parser.add_argument("--indicator-threshold", type=int, default=15)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     parser.add_argument("--png-out", type=Path, default=DEFAULT_PNG_OUT)
@@ -325,6 +327,7 @@ def main():
     coords = layout_to_hex(pos, base_size=args.hex_size)
     clusters = detect_clusters(g)
     data = build_hexmap_json(coords, edges, clusters,
+                             graph=g,
                              indicator_threshold=args.indicator_threshold)
 
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
