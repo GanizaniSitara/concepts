@@ -68,6 +68,60 @@ def compute_layout(g, layout="spring", k=0.15, seed=42):
     return nx.spring_layout(g, weight="weight", seed=seed, k=k, scale=1.0)
 
 
+# ---------------------------------------------------------------
+# HIERARCHICAL LAYOUT  (cluster centres far apart, internals tight)
+# ---------------------------------------------------------------
+def hierarchical_layout(G, layout="kamada_kawai",
+                        internal_k=0.05,        # tighter inside cluster
+                        cluster_k=1.5,           # looser between clusters
+                        seed=42):
+    """
+    Return a dict {node: (x, y)} where clusters are clearly separated.
+    """
+    # 1️⃣  detect communities
+    communities = nx.algorithms.community.greedy_modularity_communities(
+        G.to_undirected(), weight="weight")
+    clusters = [list(c) for c in communities]
+
+    # 2️⃣  build meta‑graph
+    meta = nx.Graph()
+    for idx, nodes in enumerate(clusters):
+        meta.add_node(idx, members=nodes)
+
+    # add weighted edges between clusters
+    for u, v, w in G.edges(data="weight"):
+        cu = next(i for i, c in enumerate(clusters) if u in c)
+        cv = next(i for i, c in enumerate(clusters) if v in c)
+        if cu == cv:
+            continue
+        meta.add_edge(cu, cv, weight=w + meta.get_edge_data(cu, cv, {}).get("weight", 0))
+
+    # 3️⃣  layout meta‑graph (cluster centres)
+    if layout == "spring":
+        centre_pos = nx.spring_layout(meta, weight="weight",
+                                      seed=seed, k=cluster_k, scale=1.0)
+    else:  # kamada_kawai default
+        centre_pos = nx.kamada_kawai_layout(meta, weight="weight", scale=1.0)
+
+    # 4️⃣  layout each cluster internally, then translate
+    pos = {}
+    rng = np.random.default_rng(seed)
+    for idx, nodes in enumerate(clusters):
+        sub = G.subgraph(nodes)
+        if layout == "spring":
+            local = nx.spring_layout(sub, weight="weight",
+                                     seed=rng.integers(0, 1000000),
+                                     k=internal_k, scale=0.3)
+        else:
+            local = nx.kamada_kawai_layout(sub, weight="weight", scale=0.3)
+
+        cx, cy = centre_pos[idx]
+        for n, (x, y) in local.items():
+            pos[n] = (cx + x, cy + y)
+
+    return pos
+
+
 # ------------------------------------------------------------------
 # HEX HELPERS
 # ------------------------------------------------------------------
@@ -271,7 +325,13 @@ def main():
              if args.excel and args.sheet else load_edges_from_sample())
 
     g = build_graph(edges)
-    pos = compute_layout(g, layout=args.layout, k=args.spring_k)
+    # pos = compute_layout(g, layout=args.layout, k=args.spring_k)
+    pos = hierarchical_layout(
+        g,
+        layout="kamada_kawai",  # or "spring"
+        internal_k=0.05,  # tight inside clusters
+        cluster_k=1.5  # spacious between clusters
+    )
 
     if not args.no_png:
         save_png(g, pos, args.png_out)
