@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
 # graph_hex_translate.py
-#
-# Builds a graph from an edge list (sample or Excel), lays it out,
-# converts the 2‑D layout to hex‑grid axial coordinates, detects
-# communities → dynamic “APPS n” clusters, assigns unique colours
-# (RAG reserved for status only), and writes HexMap‑compatible JSON
-# to a fixed path:  C:\Solutions\JavaScript\HexMap\src\data.json
-#
-# Example
-#   python graph_hex_translate.py
-#   python graph_hex_translate.py --excel flows.xlsx --sheet Flows
-#
 import argparse
 import json
 import math
@@ -25,26 +14,17 @@ import pandas as pd
 
 
 # ------------------------------------------------------------------
-# CONSTANTS
+# CONSTANTS (overridable via CLI)
 # ------------------------------------------------------------------
-JSON_OUT_PATH = Path(r"C:\Solutions\JavaScript\HexMap\src\data.json")
-PNG_OUT_PATH = Path("graph.png")
+DEFAULT_JSON_OUT = Path(r"C:\Solutions\JavaScript\HexMap\src\data.json")
+DEFAULT_PNG_OUT = Path("graph.png")
 
-# ⬤ RAG palette reserved for future per‑node status use (don’t touch)
-RAG_PALETTE = ["#e31a1c",  # red
-               "#ff7f00",  # amber
-               "#33a02c"]  # green
+# reserved for future status colouring
+RAG_PALETTE = ["#e31a1c", "#ff7f00", "#33a02c"]
 
-# Base colours for clusters (exclude the three RAG colours)
 CLUSTER_BASE_PALETTE = [
-    "#1E90FF",
-    "#4169E1",
-    "#8A2BE2",
-    "#FFD700",  # Gold
-    "#FF69B4",  # Hot Pink
-    "#40E0D0"   # Turquoise
-    "#9932CC",
-    "#008080",
+    "#1f78b4", "#6a3d9a", "#a6cee3", "#b2df8a",
+    "#fb9a99", "#fdbf6f", "#cab2d6"
 ]
 
 SQRT3 = math.sqrt(3)
@@ -79,12 +59,13 @@ def build_graph(edges):
     return g
 
 
-def compute_layout(g, layout="spring", seed=42):
+def compute_layout(g, layout="spring", k=0.15, seed=42):
     if layout == "kamada_kawai":
         return nx.kamada_kawai_layout(g, weight="weight")
     if layout == "shell":
         return nx.shell_layout(g)
-    return nx.spring_layout(g, weight="weight", seed=seed)
+    # spring layout: k ↓  -> tighter cluster
+    return nx.spring_layout(g, weight="weight", seed=seed, k=k, scale=1.0)
 
 
 # ------------------------------------------------------------------
@@ -97,11 +78,10 @@ def to_axial(x, y, size):
 
 
 def cube_round(qf, rf):
-    x = qf
-    z = rf
+    x, z = qf, rf
     y = -x - z
     rx, ry, rz = map(round, (x, y, z))
-    dx, dy, dz = map(abs, (rx - x, ry - y, rz - z))
+    dx, dy, dz = abs(rx - x), abs(ry - y), abs(rz - z)
     if dx > dy and dx > dz:
         rx = -ry - rz
     elif dy > dz:
@@ -154,7 +134,10 @@ def resolve_collisions(coords):
     return coords
 
 
-def layout_to_hex(pos, base_size=0.1, max_iter=25):
+def layout_to_hex(pos, base_size=1.5, max_iter=25):
+    """
+    base_size ↑  ->  tighter hex map
+    """
     xs, ys = zip(*pos.values())
     xs = np.array(xs) - np.mean(xs)
     ys = np.array(ys) - np.mean(ys)
@@ -166,7 +149,7 @@ def layout_to_hex(pos, base_size=0.1, max_iter=25):
             coords[n] = cube_round(qf, rf)
         if max(Counter(coords.values()).values()) == 1:
             return coords
-        size *= 0.8
+        size *= 0.8  # shrink if collisions remain
     return resolve_collisions(coords)
 
 
@@ -174,7 +157,6 @@ def layout_to_hex(pos, base_size=0.1, max_iter=25):
 # CLUSTERING & COLOURS
 # ------------------------------------------------------------------
 def detect_clusters(g):
-    """Greedy modularity communities -> list of node lists."""
     comms = nx.algorithms.community.greedy_modularity_communities(
         g.to_undirected(), weight="weight")
     return [sorted(c) for c in comms]
@@ -199,13 +181,12 @@ def strength_from_weight(w):
 
 
 def cluster_label_position(cluster_coords, all_coords):
-    """Place label slightly outside cluster towards perimeter."""
     cq = int(round(np.mean([q for q, _ in cluster_coords])))
     cr = int(round(np.mean([r for _, r in cluster_coords])))
     gq = np.mean([q for q, _ in all_coords])
     gr = np.mean([r for _, r in all_coords])
     dq = int(math.copysign(2, cq - gq)) if cq != gq else 0
-    dr = int(math.copysign(2, cr - gr)) if cr != gr else 3  # push down if centred
+    dr = int(math.copysign(2, cr - gr)) if cr != gr else 3
     return {"q": cq + dq, "r": cr + dr}
 
 
@@ -251,7 +232,7 @@ def build_hexmap_json(coords, edges, clusters):
 # ------------------------------------------------------------------
 # PNG DEBUG VISUAL
 # ------------------------------------------------------------------
-def save_png(g, pos):
+def save_png(g, pos, png_path):
     w = nx.get_edge_attributes(g, "weight")
     max_w = max(w.values())
     widths = [0.5 + 4 * wt / max_w for wt in w.values()]
@@ -262,7 +243,7 @@ def save_png(g, pos):
     nx.draw_networkx_labels(g, pos, font_size=8)
     plt.axis("off")
     plt.tight_layout()
-    plt.savefig(PNG_OUT_PATH, dpi=150)
+    plt.savefig(png_path, dpi=150)
     plt.close()
 
 
@@ -275,7 +256,14 @@ def main():
     parser.add_argument("--sheet", help="Sheet name")
     parser.add_argument("--layout", default="spring",
                         choices=["spring", "kamada_kawai", "shell"])
-    parser.add_argument("--hex-size", type=float, default=0.1)
+    parser.add_argument("--spring-k", type=float, default=0.15,
+                        help="Lower value → tighter initial spring layout")
+    parser.add_argument("--hex-size", type=float, default=20,
+                        help="Higher value → tighter hex‑grid projection")
+    parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT,
+                        help="Output path for HexMap JSON")
+    parser.add_argument("--png-out", type=Path, default=DEFAULT_PNG_OUT,
+                        help="Debug PNG path")
     parser.add_argument("--no-png", action="store_true")
     args = parser.parse_args()
 
@@ -283,19 +271,18 @@ def main():
              if args.excel and args.sheet else load_edges_from_sample())
 
     g = build_graph(edges)
-    pos = compute_layout(g, args.layout)
+    pos = compute_layout(g, layout=args.layout, k=args.spring_k)
 
     if not args.no_png:
-        save_png(g, pos)
+        save_png(g, pos, args.png_out)
 
     coords = layout_to_hex(pos, base_size=args.hex_size)
     clusters = detect_clusters(g)
-
     data = build_hexmap_json(coords, edges, clusters)
 
-    JSON_OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    JSON_OUT_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    print(f"HexMap JSON saved -> {JSON_OUT_PATH}")
+    args.json_out.parent.mkdir(parents=True, exist_ok=True)
+    args.json_out.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    print(f"HexMap JSON saved -> {args.json_out}")
 
 
 if __name__ == "__main__":
