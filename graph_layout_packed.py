@@ -16,34 +16,22 @@ import pandas as pd
 # ───────────────────────────────────────────────────────────────
 # CONSTANTS
 # ───────────────────────────────────────────────────────────────
-DEFAULT_JSON_OUT = Path(r"C:\Solutions\JavaScript\HexMap\src\data.json")  # Adjust if needed
+DEFAULT_JSON_OUT = Path(r"C:\Solutions\JavaScript\HexMap\src\data.json")
 DEFAULT_PNG_OUT = Path("graph_layout_final.png")
 MAX_PER_ROW = 10
-RAG_PALETTE = ["#e31a1c", "#ff7f00", "#33a02c"]  # reserved
-CLUSTER_BASE_PALETTE = [
-    "#1f78b4", "#6a3d9a", "#a6cee3",
-    "#b2df8a", "#fb9a99", "#fdbf6f",
-    "#cab2d6"
-]
+RAG_PALETTE = ["#e31a1c", "#ff7f00", "#33a02c"]
+CLUSTER_BASE_PALETTE = ["#1f78b4", "#6a3d9a", "#a6cee3", "#b2df8a", "#fb9a99", "#fdbf6f", "#cab2d6"]
 SQRT3 = math.sqrt(3)
-# Axial directions for hex grid neighbors (pointy-top):
-DIRS = [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]  # E, SE, SW, W, NW, NE
+DIRS = [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]
 
 
 # ───────────────────────────────────────────────────────────────
 # HEX GRID UTILITIES
 # ───────────────────────────────────────────────────────────────
-def axial_to_cube(q, r):
-    x = q;
-    z = r;
-    y = -x - z
-    return x, y, z
+def axial_to_cube(q, r): x = q; z = r; y = -x - z; return x, y, z
 
 
-def cube_to_axial(x, y, z):
-    q = x;
-    r = z
-    return q, r
+def cube_to_axial(x, y, z): q = x; r = z; return q, r
 
 
 def cube_round(x_cube, y_cube, z_cube):
@@ -64,7 +52,7 @@ def cube_round(x_cube, y_cube, z_cube):
 
 def cartesian_to_axial(x_cart, y_cart, hex_pixel_size=1.0):
     if hex_pixel_size == 0: return (0, 0)
-    q_frac = (2 / 3 * x_cart) / hex_pixel_size
+    q_frac = (2 / 3 * x_cart) / hex_pixel_size;
     r_frac = (-1 / 3 * x_cart + SQRT3 / 3 * y_cart) / hex_pixel_size
     x_cube_frac, y_cube_frac, z_cube_frac = axial_to_cube(q_frac, r_frac)
     rx_cube, ry_cube, rz_cube = cube_round(x_cube_frac, y_cube_frac, z_cube_frac)
@@ -75,8 +63,7 @@ def cartesian_to_axial(x_cart, y_cart, hex_pixel_size=1.0):
 # ───────────────────────────────────────────────────────────────
 # DATA LOADING
 # ───────────────────────────────────────────────────────────────
-def load_edges_from_excel(path, sheet,
-                          sc="Source Application", tc="Target Application", wc="Duplication Count"):
+def load_edges_from_excel(path, sheet, sc="Source Application", tc="Target Application", wc="Duplication Count"):
     df = pd.read_excel(path, sheet_name=sheet)[[sc, tc, wc]].dropna()
     df[wc] = df[wc].astype(float)
     return list(df.itertuples(index=False, name=None))
@@ -84,20 +71,15 @@ def load_edges_from_excel(path, sheet,
 
 def load_edges_from_sample():
     try:
-        from sample_data import sample_edges
-        return sample_edges
+        from sample_data import sample_edges; return sample_edges
     except ImportError:
         print("sample_data.py not found, using inline sample edges.")
-        return [
-            ("AppA", "AppB", 10.0), ("AppB", "AppC", 20.0), ("AppA", "AppC", 5.0),
-            ("AppD", "AppE", 15.0), ("AppE", "AppF", 25.0), ("AppD", "AppF", 8.0),
-            ("AppG", "AppH", 12.0), ("AppA", "AppD", 30.0), ("AppB", "AppE", 20.0),
-            ("AppX", "AppY", 50.0), ("AppY", "AppZ", 60.0), ("AppX", "AppZ", 40.0),
-            ("AppA", "AppX", 70.0),
-            *[(f"C1N{i}", f"C1N{i + 1}", 5.0) for i in range(12)],
-            *[(f"C2N{i}", f"C2N{i + 1}", 5.0) for i in range(8)],
-            ("AppC", f"C1N0", 15.0), ("AppF", f"C2N0", 15.0), (f"C1N6", f"C2N4", 25.0)
-        ]
+        return [("AppA", "AppB", 10.0), ("AppB", "AppC", 20.0), ("AppA", "AppC", 5.0), ("AppD", "AppE", 15.0),
+                ("AppE", "AppF", 25.0), ("AppD", "AppF", 8.0), ("AppG", "AppH", 12.0), ("AppA", "AppD", 30.0),
+                ("AppB", "AppE", 20.0), ("AppX", "AppY", 50.0), ("AppY", "AppZ", 60.0), ("AppX", "AppZ", 40.0),
+                ("AppA", "AppX", 70.0), *[(f"C1N{i}", f"C1N{i + 1}", 5.0) for i in range(12)],
+                *[(f"C2N{i}", f"C2N{i + 1}", 5.0) for i in range(8)], ("AppC", f"C1N0", 15.0), ("AppF", f"C2N0", 15.0),
+                (f"C1N6", f"C2N4", 25.0)]
 
 
 # ───────────────────────────────────────────────────────────────
@@ -105,25 +87,36 @@ def load_edges_from_sample():
 # ───────────────────────────────────────────────────────────────
 def build_graph(edges):
     g = nx.DiGraph()
-    for s, t, w in edges: g.add_edge(s, t, weight=float(w))
+    for s, t, w in edges:
+        g.add_edge(str(s), str(t), weight=float(w))
     return g
 
 
 def hierarchical_layout(g, internal_k=0.05, meta_kk_scale=10.0, seed=42):
     graph_for_community = g.to_undirected() if g.is_directed() else g
     if graph_for_community.number_of_edges() == 0 and graph_for_community.number_of_nodes() > 0:
-        comms = [[node] for node in graph_for_community.nodes()]
+        comms_temp = [[node] for node in graph_for_community.nodes()]
     elif graph_for_community.number_of_nodes() == 0:
-        comms = []
+        comms_temp = []
     else:
         try:
             comms_gen = nx.algorithms.community.greedy_modularity_communities(graph_for_community, weight="weight")
-            comms = [list(c) for c in comms_gen if c]
-            if not comms and graph_for_community.number_of_nodes() > 0: comms = [[node] for node in
-                                                                                 graph_for_community.nodes()]
+            comms_temp = [list(c) for c in comms_gen if c]
+            if not comms_temp and graph_for_community.number_of_nodes() > 0: comms_temp = [[node] for node in
+                                                                                           graph_for_community.nodes()]
         except Exception as e:
             print(f"Community detection failed: {e}. Treating all nodes as separate communities.")
-            comms = [[node] for node in graph_for_community.nodes()]
+            comms_temp = [[node] for node in graph_for_community.nodes()]
+
+    degrees_in_g = dict(g.degree())
+    comms = []
+    for community_nodes in comms_temp:
+        sorted_community_nodes = sorted(
+            community_nodes,
+            key=lambda node: degrees_in_g.get(node, 0),
+            reverse=True
+        )
+        comms.append(sorted_community_nodes)
 
     meta = nx.Graph()
     node_to_comm_idx = {}
@@ -162,6 +155,7 @@ def hierarchical_layout(g, internal_k=0.05, meta_kk_scale=10.0, seed=42):
             local_pos = {node: (0, 0) for node in sub.nodes()}
         else:
             local_pos = {}
+
         cx, cy = meta_centers.get(i, (0.0, 0.0))
         for n, (x, y) in local_pos.items(): pos[n] = (cx + x, cy + y)
     return pos, comms, meta_centers
@@ -176,8 +170,7 @@ def pack_rows(cluster_anchor_qr, nodes_in_cluster):
     for idx, node_id in enumerate(nodes_in_cluster):
         row = idx // MAX_PER_ROW;
         col = idx % MAX_PER_ROW
-        shift_q_offset = - (row % 2)
-        current_q = q0 + col + shift_q_offset;
+        current_q = q0 + row + col
         current_r = r0 + row
         packed_coords[node_id] = (current_q, current_r)
     return packed_coords
@@ -260,8 +253,8 @@ def extend_palette(n):
 
 
 def strength_category(w):
-    if w >= 500: return "high"
-    if w >= 250: return "medium"
+    if w >= 500: return "high";
+    if w >= 250: return "medium";
     return "low"
 
 
@@ -271,14 +264,10 @@ def calculate_cluster_label_anchor(app_hex_positions_map):
     top_row_apps_pos = [pos for pos in app_hex_positions_map.values() if pos[1] == min_r]
     if not top_row_apps_pos:
         any_app_pos = next(iter(app_hex_positions_map.values()))
-        return (any_app_pos[0], any_app_pos[1])  # Anchor at app level
-
+        return (any_app_pos[0], any_app_pos[1])
     top_row_apps_pos.sort(key=lambda pos: pos[0])
     median_top_app_pos = top_row_apps_pos[len(top_row_apps_pos) // 2]
-
-    label_q = median_top_app_pos[0]
-    label_r = median_top_app_pos[1]  # CHANGED: Use same 'r' as top apps
-    return (label_q, label_r)
+    return (median_top_app_pos[0], median_top_app_pos[1])
 
 
 def build_json(graph, cluster_node_lists, final_placements, indicator_threshold):
@@ -289,7 +278,7 @@ def build_json(graph, cluster_node_lists, final_placements, indicator_threshold)
         weight = w_data.get('weight', 1.0)
         conn_map[s].append({"to": str(t), "type": "link", "strength": strength_category(weight)})
 
-    deg_map = dict(graph.degree());
+    deg_map = dict(graph.degree())
     output_data = {"clusters": []}
     for original_cluster_idx in range(num_clusters):
         if original_cluster_idx not in final_placements:
@@ -299,15 +288,13 @@ def build_json(graph, cluster_node_lists, final_placements, indicator_threshold)
         placement_info = final_placements[original_cluster_idx]
         json_cluster_id_num = original_cluster_idx + 1
         cluster_color = palette[original_cluster_idx % len(palette)] if palette else "#808080"
+
         app_hex_positions = placement_info["app_positions"]
         nodes_in_this_cluster = placement_info["cluster_nodes"]
 
         if nodes_in_this_cluster and app_hex_positions:
             cluster_label_anchor_q, cluster_label_anchor_r = calculate_cluster_label_anchor(app_hex_positions)
         else:
-            # Fallback for empty clusters: use packing anchor.
-            # Label r will be same as packing anchor r. If front-end renders text above this, it's fine.
-            # If you wanted "one above" for empty clusters, it would be placement_info["anchor"][1] - 1
             cluster_label_anchor_q, cluster_label_anchor_r = placement_info["anchor"]
 
         apps_json_list = []
@@ -322,7 +309,9 @@ def build_json(graph, cluster_node_lists, final_placements, indicator_threshold)
             app_data = {"id": str(node_id), "name": str(node_id), "color": cluster_color,
                         "connections": conn_map.get(node_id, []), "status": 100,
                         "gridPosition": {"q": app_q, "r": app_r}}
-            if deg_map.get(node_id, 0) >= indicator_threshold: app_data["showPositionIndicator"] = True
+
+            if deg_map.get(node_id, 0) >= indicator_threshold:
+                app_data["showPositionIndicator"] = True
             apps_json_list.append(app_data)
 
         output_data["clusters"].append({
@@ -360,11 +349,12 @@ def save_png_debug(graph_obj, node_positions_cartesian, output_path):
 # MAIN
 # ───────────────────────────────────────────────────────────────
 def main():
-    parser = argparse.ArgumentParser(description="Generate HexMap JSON with buffered cluster placement.")
+    parser = argparse.ArgumentParser(
+        description="Generate HexMap JSON with degree-sorted internal packing and custom row staggering.")
     parser.add_argument("--excel", help="Path to Excel file");
     parser.add_argument("--sheet", help="Sheet name")
     parser.add_argument("--internal-k", type=float, default=0.1, help="Spring k for PNG debug.")
-    parser.add_argument("--meta-kk-scale", type=float, default=10.0,
+    parser.add_argument("--meta-kk-scale", type=float, default=30.0,
                         help="Kamada-Kawai scale for cluster centers. Controls spread.")
     parser.add_argument("--indicator-threshold", type=int, default=15, help="Degree threshold for indicator.")
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT, help="Output JSON path.")
@@ -380,18 +370,37 @@ def main():
 
     pos_cartesian, cluster_node_lists, meta_cartesian_centers = hierarchical_layout(g, args.internal_k,
                                                                                     args.meta_kk_scale, args.seed)
+
     if not args.no_png:
         if pos_cartesian:
             save_png_debug(g, pos_cartesian, args.png_out)
         else:
             print("Skipping PNG: No Cartesian positions generated.")
     if not cluster_node_lists: print("No clusters detected. Cannot proceed. Exiting."); return
-    if len(meta_cartesian_centers) != len(cluster_node_lists) and cluster_node_lists:
+
+    if cluster_node_lists and (not meta_cartesian_centers or
+                               len(meta_cartesian_centers) != len(cluster_node_lists) or
+                               any(i not in meta_cartesian_centers for i in range(len(cluster_node_lists)))):
         print(
-            f"Warning: Mismatch communities ({len(cluster_node_lists)}) vs meta_centers ({len(meta_cartesian_centers)}).")
+            f"Warning: Mismatch/incompleteness in meta_cartesian_centers ({len(meta_cartesian_centers)}) vs communities ({len(cluster_node_lists)}). Rebuilding to align.")
+        new_meta_centers = {}
+        current_x_offset = 0
+        default_spacing = args.meta_kk_scale / max(1, len(cluster_node_lists) - 1 if len(cluster_node_lists) > 1 else 1)
+
+        for i in range(len(cluster_node_lists)):
+            if i in meta_cartesian_centers:
+                new_meta_centers[i] = meta_cartesian_centers[i]
+                current_x_offset = meta_cartesian_centers[i][0] + default_spacing
+            else:
+                new_meta_centers[i] = (current_x_offset, 0)
+                current_x_offset += default_spacing
+        meta_cartesian_centers = new_meta_centers
 
     final_hex_placements = place_clusters_on_hex_grid(cluster_node_lists, meta_cartesian_centers)
-    output_json_data = build_json(g, cluster_node_lists, final_hex_placements, args.indicator_threshold)
+
+    output_json_data = build_json(g, cluster_node_lists, final_hex_placements,
+                                  args.indicator_threshold)  # Corrected variable name
+
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(json.dumps(output_json_data, indent=2), encoding="utf-8")
     print(f"HexMap JSON saved to {args.json_out}")
