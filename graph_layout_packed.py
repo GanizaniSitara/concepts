@@ -196,7 +196,13 @@ def place_clusters_on_hex_grid(cluster_node_lists, meta_cartesian_centers):
         q_ideal, r_ideal = cartesian_to_axial(x, y, hex_pixel_size=1.0)
         initial_hex_anchors[i] = (q_ideal, r_ideal)
 
-    sorted_cluster_indices = list(meta_cartesian_centers.keys())
+    # Sort clusters by size (number of nodes) in descending order (largest first)
+    sorted_cluster_indices = sorted(
+        meta_cartesian_centers.keys(),
+        key=lambda idx: len(cluster_node_lists[idx]),
+        reverse=True
+    )
+    
     occupied_global_cells = set();
     final_cluster_placements = {}
     max_search_attempts_bfs = 5000
