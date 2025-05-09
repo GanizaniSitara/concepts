@@ -165,13 +165,20 @@ def hierarchical_layout(g, internal_k=0.05, meta_kk_scale=10.0, seed=42):
 # HEX PACKING AND CLUSTER PLACEMENT
 # ───────────────────────────────────────────────────────────────
 def pack_rows(cluster_anchor_qr, nodes_in_cluster):
-    q0, r0 = cluster_anchor_qr;
+    q0, r0 = cluster_anchor_qr
     packed_coords = {}
     for idx, node_id in enumerate(nodes_in_cluster):
-        row = idx // MAX_PER_ROW;
-        col = idx % MAX_PER_ROW
-        current_q = q0 + row + col
-        current_r = r0 + row
+        # Logical row and column for filling the cluster
+        row_idx = idx // MAX_PER_ROW
+        col_idx = idx % MAX_PER_ROW
+
+        # Axial coordinates for a standard flat-topped honeycomb packing
+        # "odd-r" convention (RedBlobGames) for flat-topped: q = col + (row - (row&1))//2
+        q_local = col_idx + (row_idx - (row_idx & 1)) // 2
+        r_local = row_idx
+        
+        current_q = q0 + q_local
+        current_r = r0 + r_local
         packed_coords[node_id] = (current_q, current_r)
     return packed_coords
 
@@ -309,8 +316,11 @@ def build_json(graph, cluster_node_lists, final_placements, indicator_threshold)
             app_data = {"id": str(node_id), "name": str(node_id), "color": cluster_color,
                         "connections": conn_map.get(node_id, []), "status": 100,
                         "gridPosition": {"q": app_q, "r": app_r}}
-
-            if deg_map.get(node_id, 0) >= indicator_threshold:
+            
+            current_degree = deg_map.get(node_id, 0)
+            # Debug print statement added here:
+            print(f"Node: {node_id}, Degree: {current_degree}, Threshold: {indicator_threshold}, ShowIndicator: {current_degree >= indicator_threshold}")
+            if current_degree >= indicator_threshold:
                 app_data["showPositionIndicator"] = True
             apps_json_list.append(app_data)
 
