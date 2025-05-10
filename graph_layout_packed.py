@@ -173,8 +173,9 @@ def pack_rows(cluster_anchor_qr, nodes_in_cluster):
         col_idx = idx % MAX_PER_ROW
 
         # Axial coordinates for a standard flat-topped honeycomb packing
-        # "odd-r" convention (RedBlobGames) for flat-topped: q = col + (row - (row&1))//2
-        q_local = col_idx + (row_idx - (row_idx & 1)) // 2
+        # Changed from 'col_idx + (row_idx - (row_idx & 1)) // 2' to 'col_idx - (row_idx // 2)'
+        # to achieve a consistent leftward slant for clusters as row_idx increases.
+        q_local = col_idx - (row_idx // 2)
         r_local = row_idx
         
         current_q = q0 + q_local
