@@ -231,11 +231,20 @@ def place_clusters_on_hex_grid(cluster_node_lists, meta_cartesian_centers):
             if not collision:
                 chosen_anchor = (cand_anchor_q, cand_anchor_r); found_spot = True; break
             else:
+                # Explore neighbors, sorted by distance to the original ideal anchor
+                neighbors = []
                 for dq, dr in DIRS:
                     next_q, next_r = cand_anchor_q + dq, cand_anchor_r + dr
                     if (next_q, next_r) not in visited_anchors:
-                        search_q.append((next_q, next_r));
-                        visited_anchors.add((next_q, next_r))
+                        neighbors.append((next_q, next_r))
+                
+                # Sort neighbors by Euclidean distance to the ideal anchor (q_ideal, r_ideal), closer first
+                # This is a heuristic to guide the BFS towards the ideal if possible
+                neighbors.sort(key=lambda coord: math.sqrt((coord[0] - q_ideal)**2 + (coord[1] - r_ideal)**2 + (coord[0] - q_ideal + coord[1] - r_ideal)**2)) # Cube distance for hex grid
+
+                for next_q_sorted, next_r_sorted in neighbors:
+                    search_q.append((next_q_sorted, next_r_sorted))
+                    visited_anchors.add((next_q_sorted, next_r_sorted))
 
         if not found_spot: print(
             f"Warning: Could not find non-colliding buffered spot for cluster {cluster_idx} after {attempts} attempts. Using ideal/last tried anchor {chosen_anchor}.")
