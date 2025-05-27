@@ -2,13 +2,15 @@
 import os
 import argparse
 import zipfile
+import sys
+import time
 from collections import defaultdict
 
 try:
     import magic
 except ImportError:
     print("Please install python-magic (e.g. pip install python-magic)")
-    exit(1)
+    sys.exit(1)
 
 # Metadata definitions for known file extensions:
 # Each key is an extension and maps to:
@@ -175,6 +177,17 @@ def main():
     )
     args = parser.parse_args()
 
+    # Validate directory parameter
+    if not os.path.isdir(args.directory):
+        print(f"Error: '{args.directory}' is not a valid directory.")
+        parser.print_help()
+        sys.exit(1)
+
+    # Notify user of start
+    print(f"Scanning directory: {args.directory}")
+    print("This may take a while for large trees...")
+    start_time = time.time()
+
     counts = defaultdict(int)
     sizes = defaultdict(int)
     mimes = defaultdict(lambda: defaultdict(int))
@@ -182,9 +195,14 @@ def main():
     unknown_samples = {}
 
     mime_detector = magic.Magic(mime=True)
+    file_count = 0
 
     for root, _, files in os.walk(args.directory):
         for name in files:
+            file_count += 1
+            # Print a dot for every file to indicate progress
+            print('.', end='', flush=True)
+
             path = os.path.join(root, name)
             ext = os.path.splitext(name)[1].lower().lstrip('.')
             if not ext:
@@ -211,6 +229,11 @@ def main():
                 if ext not in unknown_samples:
                     unknown_samples[ext] = (path, mime)
 
+    # Finish progress indicator
+    print()  # newline after dots
+    elapsed = time.time() - start_time
+    print(f"Scan complete. Processed {file_count} files in {elapsed:.2f}s.")
+
     size_strs = {
         ext: (human_readable_size(sizes[ext]) if args.human else str(sizes[ext]))
         for ext in sizes
@@ -223,7 +246,7 @@ def main():
 
     header = f"{col_ext:{w_ext}}  {col_cnt:{w_cnt}}  {col_sz:{w_sz}}  {col_mime}"
     print(header)
-    print("-"*len(header))
+    print("-" * len(header))
     for ext in sorted(counts):
         top_mime = max(mimes[ext].items(), key=lambda x: x[1])[0]
         print(f"{ext:{w_ext}}  {counts[ext]:{w_cnt}}  {size_strs[ext]:{w_sz}}  {top_mime}")
