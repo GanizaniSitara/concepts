@@ -164,13 +164,14 @@ def human_readable_size(size):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Summarize file types in a directory with metadata lookup."
+        description="Summarize file types in a directory with metadata lookup.",
+        epilog="Example usage:\n  %(prog)s           # scan current directory\n  %(prog)s /path/to/dir --human"
     )
     parser.add_argument(
-        "directory", nargs="?", default=".", help="Directory to scan"
+        "directory", nargs="?", default=".", help="Directory to scan (default: current directory)"
     )
     parser.add_argument(
-        "--human", action="store_true", help="Show human-readable sizes"
+        "--human", action="store_true", help="Show human-readable sizes (e.g., 1.23MB)"
     )
     args = parser.parse_args()
 
