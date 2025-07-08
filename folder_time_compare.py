@@ -5,8 +5,8 @@ from datetime import datetime
 import pandas as pd
 
 # === CONFIGURATION ===
-base_dir = '/path/to/base_directory'  # ← Change this to your folder containing the control run subfolders
-pattern = re.compile(r'.*EOD_CTRL-(\d+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})')
+base_dir = r"..\evidence"  # ← Change this to your folder containing the control run subfolders
+pattern = re.compile(r'.*CTRL-(\d+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})')
 
 # === DISCOVER RUNS AND PICK ONE PER CONTROL PER HOUR ===
 runs = {}
@@ -48,10 +48,10 @@ files = sorted({
     if os.path.splitext(fname)[1].lower() in ('.csv', '.json', '.txt')
 })
 
-# build an empty DataFrame indexed by (control, file) and columns by our hour labels
+# build an empty DataFrame indexed by (file, control) to put control names at top
 index = pd.MultiIndex.from_product(
-    [controls, files],
-    names=['control', 'file']
+    [files, controls],
+    names=['file', 'control']
 )
 df = pd.DataFrame(index=index, columns=columns, dtype=object)
 
@@ -62,9 +62,9 @@ for (ctrl, hour), path in representatives.items():
         fp = os.path.join(path, fname)
         if os.path.exists(fp):
             with open(fp, 'rb') as fh:
-                df.at[(ctrl, fname), label] = hashlib.sha1(fh.read()).hexdigest()
+                df.at[(fname, ctrl), label] = hashlib.sha1(fh.read()).hexdigest()
         else:
-            df.at[(ctrl, fname), label] = None
+            df.at[(fname, ctrl), label] = None
 
 # === COMPUTE STATUS (added, missing, unchanged, changed) ===
 status = pd.DataFrame(index=df.index, columns=df.columns, dtype=object)
@@ -107,15 +107,32 @@ styles = [
             ('white-space', 'pre'),          # respect the "\n" in header
             ('width', '30px'),
             ('padding', '2px'),
-            ('vertical-align', 'bottom')
+            ('vertical-align', 'bottom'),
+            ('height', '80px'),              # prevent bleeding off page
+            ('max-height', '80px')
         ]
     },
-    # left-align the row labels (control/file)
+    # right-align the row labels (control/file) and remove bold
     {
         'selector': 'th.row_heading',
         'props': [
-            ('text-align', 'left'),
-            ('padding-right', '10px')
+            ('text-align', 'right'),
+            ('padding-right', '10px'),
+            ('font-weight', 'normal')
+        ]
+    },
+    # add faint table outline
+    {
+        'selector': 'table',
+        'props': [
+            ('border', '1px solid #e0e0e0'),
+            ('border-collapse', 'collapse')
+        ]
+    },
+    {
+        'selector': 'th, td',
+        'props': [
+            ('border', '1px solid #f0f0f0')
         ]
     }
 ]
