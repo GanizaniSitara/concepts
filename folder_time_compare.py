@@ -1,8 +1,21 @@
 import os
 import re
 import hashlib
+import platform
+import subprocess
+import webbrowser
 from datetime import datetime
+from pathlib import Path
 import pandas as pd
+
+def open_html(abs_path):
+    """Open HTML file using appropriate method for the platform."""
+    if "microsoft" in platform.uname().release.lower():  # crude WSL check
+        # Translate to Windows-style path if needed
+        win_path = abs_path.replace('/mnt/c/', 'C:\\').replace('/', '\\')
+        subprocess.run(["/mnt/c/Windows/explorer.exe", win_path])
+    else:
+        webbrowser.open_new_tab(f'file://{abs_path}')
 
 # === CONFIGURATION ===
 base_dir = r"..\evidence"  # ← Change this to your folder containing the control run subfolders
@@ -150,8 +163,12 @@ styled = (
 )
 
 # === OUTPUT ===
-styled.to_html('control_comparison.html', notebook=False)
+html_path = Path('control_comparison.html').resolve()
+styled.to_html(html_path, notebook=False)
 styled.to_excel('control_comparison.xlsx', merge_cells=False)
 
 print("Rendered HTML → control_comparison.html")
 print("Rendered Excel → control_comparison.xlsx")
+
+# Open the HTML report
+open_html(str(html_path))
