@@ -124,21 +124,19 @@ def color_map(val):
 
 # === APPLY STYLING ===
 styles = [
-    # rotate column headers 90° CCW, make columns narrow, preserve line break
+    # column headers without rotation, positioned one cell down
     {
         'selector': 'th.col_heading',
         'props': [
-            ('transform', 'rotate(-90deg)'),
-            ('transform-origin', 'center bottom'),
             ('white-space', 'pre'),          # respect the "\n" in header
-            ('width', '30px'),
-            ('padding', '2px'),
-            ('vertical-align', 'bottom'),
-            ('height', '80px'),              # prevent bleeding off page
-            ('max-height', '80px'),
+            ('width', '80px'),
+            ('padding', '5px 2px'),
+            ('vertical-align', 'top'),
+            ('height', '60px'),
             ('font-family', 'sans-serif'),
             ('box-sizing', 'border-box'),
-            ('position', 'relative')
+            ('text-align', 'center'),
+            ('font-size', '0.75em')
         ]
     },
     # right-align the row labels (control/step) and remove bold, smaller font
