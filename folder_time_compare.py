@@ -66,7 +66,7 @@ files = sorted({
 # build an empty DataFrame indexed by (control, file) to put control names at top
 index = pd.MultiIndex.from_product(
     [controls, files],
-    names=['control', 'file']
+    names=['CONTROL', 'STEP']
 )
 df = pd.DataFrame(index=index, columns=columns, dtype=object)
 
@@ -128,14 +128,15 @@ styles = [
             ('font-family', 'sans-serif')
         ]
     },
-    # right-align the row labels (control/file) and remove bold
+    # right-align the row labels (control/step) and remove bold, smaller font
     {
         'selector': 'th.row_heading',
         'props': [
             ('text-align', 'right'),
             ('padding-right', '10px'),
             ('font-weight', 'normal'),
-            ('font-family', 'sans-serif')
+            ('font-family', 'sans-serif'),
+            ('font-size', '0.8em')
         ]
     },
     # add faint table outline with sans-serif font
@@ -152,6 +153,13 @@ styles = [
         'props': [
             ('border', '1px solid #f0f0f0'),
             ('font-family', 'sans-serif')
+        ]
+    },
+    # smaller font for data cells
+    {
+        'selector': 'td',
+        'props': [
+            ('font-size', '0.8em')
         ]
     }
 ]
