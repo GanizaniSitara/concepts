@@ -56,24 +56,34 @@ hour_4_labels = {
 columns = [hour_4_labels[h] for h in hour_4_slots]
 
 controls = sorted({ctrl for (ctrl, _) in representatives.keys()})
-files = sorted({
-    fname
-    for path in representatives.values()
-    for fname in os.listdir(path)
-    if os.path.splitext(fname)[1].lower() in ('.csv', '.json', '.txt')
-})
 
-# build an empty DataFrame indexed by (control, file) to put control names at top
-index = pd.MultiIndex.from_product(
-    [controls, files],
-    names=['CONTROL', 'STEP']
-)
+# Build control-specific file lists
+control_files = {}
+for ctrl in controls:
+    # Get all paths for this control across all time slots
+    ctrl_paths = [path for (c, _), path in representatives.items() if c == ctrl]
+    # Get unique files across all time slots for this control
+    ctrl_files = set()
+    for path in ctrl_paths:
+        for fname in os.listdir(path):
+            if os.path.splitext(fname)[1].lower() in ('.csv', '.json', '.txt'):
+                ctrl_files.add(fname)
+    control_files[ctrl] = sorted(ctrl_files)
+
+# build DataFrame with proper control-file mapping
+index_tuples = []
+for ctrl in controls:
+    for fname in control_files[ctrl]:
+        index_tuples.append((ctrl, fname))
+
+index = pd.MultiIndex.from_tuples(index_tuples, names=['CONTROL', 'STEP'])
 df = pd.DataFrame(index=index, columns=columns, dtype=object)
 
 # === FILL IN SHA1 HASHES FOR EACH CELL ===
 for (ctrl, hour_4_slot), path in representatives.items():
     label = hour_4_labels[hour_4_slot]
-    for fname in files:
+    # Only process files that exist for this control
+    for fname in control_files[ctrl]:
         fp = os.path.join(path, fname)
         if os.path.exists(fp):
             with open(fp, 'rb') as fh:
