@@ -22,23 +22,25 @@ for d in os.listdir(base_dir):
         f'{m.group(2)} {m.group(3).replace("-", ":")}',
         '%Y-%m-%d %H:%M'
     )
-    hour = dt.replace(minute=0, second=0, microsecond=0)
-    runs.setdefault((ctrl, hour), []).append((dt, p))
+    # Create 4-hour time slots (00:00, 04:00, 08:00, 12:00, 16:00, 20:00)
+    hour_4_slot = dt.replace(minute=0, second=0, microsecond=0)
+    hour_4_slot = hour_4_slot.replace(hour=(dt.hour // 4) * 4)
+    runs.setdefault((ctrl, hour_4_slot), []).append((dt, p))
 
-# keep the latest run within each hour for each control
+# keep the latest run within each 4-hour slot for each control
 representatives = {
-    (ctrl, hour): max(entries, key=lambda x: x[0])[1]
-    for (ctrl, hour), entries in runs.items()
+    (ctrl, hour_4_slot): max(entries, key=lambda x: x[0])[1]
+    for (ctrl, hour_4_slot), entries in runs.items()
 }
 
 # === PREPARE ROWS, COLUMNS, AND FILE LIST ===
-hours = sorted({hour for (_, hour) in representatives.keys()})
-# map each hour to a header label with date on top line, time below
-hour_labels = {
-    hour: f"{hour.strftime('%Y-%m-%d')}\n{hour.strftime('%H:%M')}"
-    for hour in hours
+hour_4_slots = sorted({hour_4_slot for (_, hour_4_slot) in representatives.keys()})
+# map each 4-hour slot to a header label with date on top line, time range below
+hour_4_labels = {
+    hour_4_slot: f"{hour_4_slot.strftime('%Y-%m-%d')}\n{hour_4_slot.strftime('%H:%M')}-{(hour_4_slot.hour + 4) % 24:02d}:00"
+    for hour_4_slot in hour_4_slots
 }
-columns = [hour_labels[h] for h in hours]
+columns = [hour_4_labels[h] for h in hour_4_slots]
 
 controls = sorted({ctrl for (ctrl, _) in representatives.keys()})
 files = sorted({
@@ -56,8 +58,8 @@ index = pd.MultiIndex.from_product(
 df = pd.DataFrame(index=index, columns=columns, dtype=object)
 
 # === FILL IN SHA1 HASHES FOR EACH CELL ===
-for (ctrl, hour), path in representatives.items():
-    label = hour_labels[hour]
+for (ctrl, hour_4_slot), path in representatives.items():
+    label = hour_4_labels[hour_4_slot]
     for fname in files:
         fp = os.path.join(path, fname)
         if os.path.exists(fp):
