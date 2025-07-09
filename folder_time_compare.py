@@ -129,15 +129,16 @@ styles = [
         'selector': 'th.col_heading',
         'props': [
             ('transform', 'rotate(-90deg)'),
-            ('transform-origin', 'center center'),
+            ('transform-origin', 'center bottom'),
             ('white-space', 'pre'),          # respect the "\n" in header
             ('width', '30px'),
             ('padding', '2px'),
-            ('vertical-align', 'middle'),
+            ('vertical-align', 'bottom'),
             ('height', '80px'),              # prevent bleeding off page
             ('max-height', '80px'),
             ('font-family', 'sans-serif'),
-            ('box-sizing', 'border-box')
+            ('box-sizing', 'border-box'),
+            ('position', 'relative')
         ]
     },
     # right-align the row labels (control/step) and remove bold, smaller font
@@ -150,6 +151,14 @@ styles = [
             ('font-family', 'sans-serif'),
             ('font-size', '0.8em'),
             ('box-sizing', 'border-box')
+        ]
+    },
+    # left-align STEP column specifically
+    {
+        'selector': 'th.row_heading.level1',
+        'props': [
+            ('text-align', 'left'),
+            ('padding', '3px 5px 3px 10px')
         ]
     },
     # add faint table outline with sans-serif font
