@@ -50,10 +50,10 @@ files = sorted({
     if os.path.splitext(fname)[1].lower() in ('.csv', '.json', '.txt')
 })
 
-# build an empty DataFrame indexed by (file, control) to put control names at top
+# build an empty DataFrame indexed by (control, file) to put control names at top
 index = pd.MultiIndex.from_product(
-    [files, controls],
-    names=['file', 'control']
+    [controls, files],
+    names=['control', 'file']
 )
 df = pd.DataFrame(index=index, columns=columns, dtype=object)
 
@@ -64,9 +64,9 @@ for (ctrl, hour_4_slot), path in representatives.items():
         fp = os.path.join(path, fname)
         if os.path.exists(fp):
             with open(fp, 'rb') as fh:
-                df.at[(fname, ctrl), label] = hashlib.sha1(fh.read()).hexdigest()
+                df.at[(ctrl, fname), label] = hashlib.sha1(fh.read()).hexdigest()
         else:
-            df.at[(fname, ctrl), label] = None
+            df.at[(ctrl, fname), label] = None
 
 # === COMPUTE STATUS (added, missing, unchanged, changed) ===
 status = pd.DataFrame(index=df.index, columns=df.columns, dtype=object)
@@ -111,7 +111,8 @@ styles = [
             ('padding', '2px'),
             ('vertical-align', 'bottom'),
             ('height', '80px'),              # prevent bleeding off page
-            ('max-height', '80px')
+            ('max-height', '80px'),
+            ('font-family', 'sans-serif')
         ]
     },
     # right-align the row labels (control/file) and remove bold
@@ -120,21 +121,24 @@ styles = [
         'props': [
             ('text-align', 'right'),
             ('padding-right', '10px'),
-            ('font-weight', 'normal')
+            ('font-weight', 'normal'),
+            ('font-family', 'sans-serif')
         ]
     },
-    # add faint table outline
+    # add faint table outline with sans-serif font
     {
         'selector': 'table',
         'props': [
             ('border', '1px solid #e0e0e0'),
-            ('border-collapse', 'collapse')
+            ('border-collapse', 'collapse'),
+            ('font-family', 'sans-serif')
         ]
     },
     {
         'selector': 'th, td',
         'props': [
-            ('border', '1px solid #f0f0f0')
+            ('border', '1px solid #f0f0f0'),
+            ('font-family', 'sans-serif')
         ]
     }
 ]
