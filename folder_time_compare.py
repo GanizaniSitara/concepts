@@ -129,13 +129,15 @@ styles = [
         'selector': 'th.col_heading',
         'props': [
             ('transform', 'rotate(-90deg)'),
+            ('transform-origin', 'center center'),
             ('white-space', 'pre'),          # respect the "\n" in header
             ('width', '30px'),
             ('padding', '2px'),
-            ('vertical-align', 'bottom'),
+            ('vertical-align', 'middle'),
             ('height', '80px'),              # prevent bleeding off page
             ('max-height', '80px'),
-            ('font-family', 'sans-serif')
+            ('font-family', 'sans-serif'),
+            ('box-sizing', 'border-box')
         ]
     },
     # right-align the row labels (control/step) and remove bold, smaller font
@@ -143,10 +145,11 @@ styles = [
         'selector': 'th.row_heading',
         'props': [
             ('text-align', 'right'),
-            ('padding-right', '10px'),
+            ('padding', '3px 10px 3px 5px'),
             ('font-weight', 'normal'),
             ('font-family', 'sans-serif'),
-            ('font-size', '0.8em')
+            ('font-size', '0.8em'),
+            ('box-sizing', 'border-box')
         ]
     },
     # add faint table outline with sans-serif font
@@ -165,11 +168,14 @@ styles = [
             ('font-family', 'sans-serif')
         ]
     },
-    # smaller font for data cells
+    # smaller font for data cells with left alignment
     {
         'selector': 'td',
         'props': [
-            ('font-size', '0.8em')
+            ('font-size', '0.8em'),
+            ('text-align', 'left'),
+            ('padding', '3px 5px'),
+            ('box-sizing', 'border-box')
         ]
     }
 ]
