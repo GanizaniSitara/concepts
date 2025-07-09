@@ -66,7 +66,8 @@ for ctrl in controls:
     ctrl_files = set()
     for path in ctrl_paths:
         for fname in os.listdir(path):
-            if os.path.splitext(fname)[1].lower() in ('.csv', '.json', '.txt'):
+            if (os.path.splitext(fname)[1].lower() in ('.csv', '.json', '.txt') and 
+                fname != 'test_summary.csv'):
                 ctrl_files.add(fname)
     control_files[ctrl] = sorted(ctrl_files)
 
