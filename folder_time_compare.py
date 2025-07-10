@@ -81,16 +81,23 @@ index = pd.MultiIndex.from_tuples(index_tuples, names=['CONTROL', 'STEP'])
 df = pd.DataFrame(index=index, columns=columns, dtype=object)
 
 # === FILL IN SHA1 HASHES FOR EACH CELL ===
-for (ctrl, hour_2_slot), path in representatives.items():
-    label = hour_2_labels[hour_2_slot]
-    # Only process files that exist for this control
-    for fname in control_files[ctrl]:
-        fp = os.path.join(path, fname)
-        if os.path.exists(fp):
-            with open(fp, 'rb') as fh:
-                df.at[(ctrl, fname), label] = hashlib.sha1(fh.read()).hexdigest()
-        else:
-            df.at[(ctrl, fname), label] = None
+# Open log file for hash debugging
+with open('hash_debug.log', 'w') as hash_log:
+    hash_log.write("Control,TimeSlot,FileName,FilePath,SHA1Hash\n")
+    
+    for (ctrl, hour_2_slot), path in representatives.items():
+        label = hour_2_labels[hour_2_slot]
+        # Only process files that exist for this control
+        for fname in control_files[ctrl]:
+            fp = os.path.join(path, fname)
+            if os.path.exists(fp):
+                with open(fp, 'rb') as fh:
+                    file_hash = hashlib.sha1(fh.read()).hexdigest()
+                    df.at[(ctrl, fname), label] = file_hash
+                    hash_log.write(f"{ctrl},{hour_2_slot.strftime('%Y-%m-%d %H:%M')},{fname},{fp},{file_hash}\n")
+            else:
+                df.at[(ctrl, fname), label] = None
+                hash_log.write(f"{ctrl},{hour_2_slot.strftime('%Y-%m-%d %H:%M')},{fname},{fp},FILE_NOT_FOUND\n")
 
 # === COMPUTE STATUS (added, missing, unchanged, changed) ===
 status = pd.DataFrame(index=df.index, columns=df.columns, dtype=object)
