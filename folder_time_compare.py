@@ -100,7 +100,9 @@ def show_delta():
 </html>"""
             
             # Save and open
-            delta_path = Path('delta_view.html').resolve()
+            output_dir = Path('comparison_output')
+            output_dir.mkdir(exist_ok=True)
+            delta_path = output_dir / 'delta_view.html'
             with open(delta_path, 'w', encoding='utf-8') as f:
                 f.write(html)
             
@@ -110,6 +112,11 @@ def show_delta():
 # Check if running in delta mode
 if len(sys.argv) > 1 and ('file1=' in sys.argv[1] or 'file2=' in sys.argv[1]):
     show_delta()
+
+# Check for debug mode
+DEBUG_MODE = '--debug' in sys.argv
+if DEBUG_MODE:
+    print("DEBUG MODE: Processing only first file and exiting...")
 
 # === CONFIGURATION ===
 base_dir = r"..\evidence"  # ← Change this to your folder containing the control run subfolders
@@ -164,6 +171,11 @@ for ctrl in controls:
                 fname != 'test_summary.csv'):
                 ctrl_files.add(fname)
     control_files[ctrl] = sorted(ctrl_files)
+    
+    # In debug mode, only process the first file
+    if DEBUG_MODE and ctrl_files:
+        control_files[ctrl] = [sorted(ctrl_files)[0]]
+        print(f"DEBUG: Processing only first file '{control_files[ctrl][0]}' for control {ctrl}")
 
 # build DataFrame with proper control-file mapping
 index_tuples = []
@@ -484,7 +496,11 @@ def create_comparison_html(file1, file2, filename, status1, status2):
     return html
 
 # === OUTPUT ===
-html_path = Path('control_comparison.html').resolve()
+# Create output directory for HTML files
+output_dir = Path('comparison_output')
+output_dir.mkdir(exist_ok=True)
+
+html_path = output_dir / 'control_comparison.html'
 
 # First, we need to track file paths for each cell
 file_paths = {}
@@ -545,8 +561,8 @@ for row_idx in range(len(status.index)):
             # Generate the comparison HTML
             comparison_html = create_comparison_html(prev_path, curr_path, fname, prev_status, curr_status)
             
-            # Save the comparison HTML
-            delta_path = Path(comparison_id).resolve()
+            # Save the comparison HTML in the output directory
+            delta_path = output_dir / comparison_id
             with open(delta_path, 'w', encoding='utf-8') as f:
                 f.write(comparison_html)
             
@@ -569,8 +585,17 @@ with open(html_path, 'w') as f:
 
 styled.to_excel('control_comparison.xlsx', merge_cells=False)
 
-print("Rendered HTML → control_comparison.html")
+print(f"Rendered HTML → {html_path}")
 print("Rendered Excel → control_comparison.xlsx")
+
+# In debug mode, exit after processing
+if DEBUG_MODE:
+    print("DEBUG MODE: Processing complete. Check debug logs:")
+    print("  - hash_debug.log: File hash computation")
+    print("  - status_debug.log: Status comparison logic")
+    print(f"  - {html_path}: Comparison table")
+    print("  - comparison_output/delta_*.html: Individual file comparisons")
+    sys.exit(0)
 
 # Open the HTML report
 open_html(str(html_path))
