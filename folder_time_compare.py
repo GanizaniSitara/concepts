@@ -520,8 +520,13 @@ for row_idx in range(len(status.index)):
                 prev_status = status.iloc[row_idx, i]
                 break
         
-        # If this is the first occurrence or we have a previous version
-        if col_idx == 0 or prev_path:
+        # Only create links for files that have differences or are new
+        # Skip "unchanged" files - they don't need comparison links
+        if curr_status == 'unchanged':
+            continue
+            
+        # Create links for: present (first occurrence), added, changed
+        if curr_status in ['present', 'added', 'changed']:
             # Create a unique filename for this comparison
             comparison_id = f"delta_{comparison_count:04d}.html"
             comparison_count += 1
