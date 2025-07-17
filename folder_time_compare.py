@@ -295,6 +295,85 @@ styled = (
           .set_table_styles(styles, overwrite=False)
 )
 
+def create_comparison_html(file1, file2, filename):
+    """Create a side-by-side comparison HTML."""
+    try:
+        with open(file1, 'r', encoding='utf-8', errors='replace') as f:
+            lines1 = f.readlines()
+    except Exception as e:
+        lines1 = [f"Error reading file: {e}\n"]
+        
+    try:
+        with open(file2, 'r', encoding='utf-8', errors='replace') as f:
+            lines2 = f.readlines()
+    except Exception as e:
+        lines2 = [f"Error reading file: {e}\n"]
+    
+    # Generate unified diff
+    diff = list(difflib.unified_diff(lines1, lines2, n=3))
+    
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Delta: {filename}</title>
+    <style>
+        body {{ font-family: sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
+        h1 {{ font-size: 1.5em; margin-bottom: 10px; }}
+        .file-info {{ background-color: #e0e0e0; padding: 10px; margin-bottom: 20px; border-radius: 5px; font-size: 0.9em; }}
+        .comparison {{ display: flex; gap: 20px; }}
+        .pane {{ flex: 1; background: white; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; }}
+        .pane-header {{ background: #333; color: white; padding: 10px; font-weight: bold; }}
+        .pane-content {{ padding: 10px; overflow-x: auto; }}
+        pre {{ margin: 0; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9em; line-height: 1.4; }}
+        .added {{ background-color: #c6efce; }}
+        .removed {{ background-color: #ffcccc; }}
+        .diff-view {{ background: white; border: 1px solid #ddd; border-radius: 5px; padding: 10px; margin-top: 20px; }}
+        .diff-line {{ font-family: 'Consolas', 'Monaco', monospace; white-space: pre; }}
+    </style>
+</head>
+<body>
+    <h1>File Comparison: {filename}</h1>
+    <div class="file-info">
+        <strong>Previous:</strong> {file1}<br>
+        <strong>Current:</strong> {file2}
+    </div>
+    
+    <div class="comparison">
+        <div class="pane">
+            <div class="pane-header">Previous Version</div>
+            <div class="pane-content">
+                <pre>{html_module.escape(''.join(lines1))}</pre>
+            </div>
+        </div>
+        <div class="pane">
+            <div class="pane-header">Current Version</div>
+            <div class="pane-content">
+                <pre>{html_module.escape(''.join(lines2))}</pre>
+            </div>
+        </div>
+    </div>
+    
+    <div class="diff-view">
+        <h2 style="font-size: 1.2em;">Unified Diff</h2>
+        <div>
+"""
+    
+    for line in diff:
+        if line.startswith('+') and not line.startswith('+++'):
+            html += f'<div class="diff-line added">{html_module.escape(line.rstrip())}</div>'
+        elif line.startswith('-') and not line.startswith('---'):
+            html += f'<div class="diff-line removed">{html_module.escape(line.rstrip())}</div>'
+        else:
+            html += f'<div class="diff-line">{html_module.escape(line.rstrip())}</div>'
+    
+    html += """
+        </div>
+    </div>
+</body>
+</html>"""
+    
+    return html
+
 # === OUTPUT ===
 html_path = Path('control_comparison.html').resolve()
 
@@ -307,57 +386,54 @@ for (ctrl, hour_2_slot), path in representatives.items():
         if os.path.exists(fp):
             file_paths[(ctrl, fname, label)] = fp
 
-# Generate the HTML
-html_content = styled.to_html(notebook=False)
+# Create a modified status DataFrame with hyperlinks for "changed" cells
+status_with_links = status.copy()
 
-# Post-process HTML to add links to "changed" cells
-import html as html_module
-lines = html_content.split('\n')
-new_lines = []
-
-# Track row/col for mapping to dataframe indices
-data_row = -1
-for line in lines:
-    if '<tr>' in line and '<th' in line and 'level0' in line:
-        # This is a data row
-        data_row += 1
-        data_col = -1
-    
-    if '<td' in line and 'background-color:#ffeb9c' in line and '>changed<' in line:
-        # This is a "changed" cell - find which column it's in
-        data_col = line.count('<td', 0, line.find('>changed<'))
-        
-        # Get the control and filename from the current row
-        if data_row < len(status.index):
-            ctrl, fname = status.index[data_row]
-            col_label = status.columns[data_col - 1] if data_col > 0 else None
+# Generate comparison HTML files and update status cells
+comparison_count = 0
+for row_idx in range(len(status.index)):
+    ctrl, fname = status.index[row_idx]
+    for col_idx in range(len(status.columns)):
+        if status.iloc[row_idx, col_idx] == 'changed':
+            # Find the current and previous file paths
+            col_label = status.columns[col_idx]
+            curr_path = file_paths.get((ctrl, fname, col_label))
             
             # Find previous file path
             prev_path = None
-            curr_path = None
-            
-            # Get current file path
-            if (ctrl, fname, col_label) in file_paths:
-                curr_path = file_paths[(ctrl, fname, col_label)]
-                
-                # Find previous file path
-                for i in range(data_col - 1, -1, -1):
-                    prev_label = status.columns[i]
-                    if (ctrl, fname, prev_label) in file_paths:
-                        prev_path = file_paths[(ctrl, fname, prev_label)]
-                        break
+            for i in range(col_idx - 1, -1, -1):
+                prev_label = status.columns[i]
+                if (ctrl, fname, prev_label) in file_paths:
+                    prev_path = file_paths[(ctrl, fname, prev_label)]
+                    break
             
             if curr_path and prev_path:
-                # Create onclick handler
-                onclick = f"navigator.clipboard.writeText('python3 folder_time_compare.py \\\"?file1={html_module.escape(prev_path)}&file2={html_module.escape(curr_path)}\\\"').then(() => alert('Command copied to clipboard! Run it in your terminal to see the delta.'));"
-                # Replace the cell content with a link
-                line = line.replace('>changed<', f' style="cursor:pointer;text-decoration:underline;" onclick="{onclick}" title="Click to copy delta command">changed<')
-    
-    new_lines.append(line)
+                # Create a unique filename for this comparison
+                comparison_id = f"delta_{comparison_count:04d}.html"
+                comparison_count += 1
+                
+                # Generate the comparison HTML
+                comparison_html = create_comparison_html(prev_path, curr_path, fname)
+                
+                # Save the comparison HTML
+                delta_path = Path(comparison_id).resolve()
+                with open(delta_path, 'w', encoding='utf-8') as f:
+                    f.write(comparison_html)
+                
+                # Update the status cell with a hyperlink
+                status_with_links.iloc[row_idx, col_idx] = f'<a href="{comparison_id}" target="_blank">changed</a>'
 
-html_content = '\n'.join(new_lines)
+# Apply styling but render HTML content (not escape it)
+styled = (
+    status_with_links.style
+          .applymap(color_map)
+          .set_table_styles(styles, overwrite=False)
+)
 
-# Write the modified HTML
+# Generate HTML and tell pandas not to escape our HTML links
+html_content = styled.to_html(notebook=False, escape=False)
+
+# Write the HTML
 with open(html_path, 'w') as f:
     f.write(html_content)
 
