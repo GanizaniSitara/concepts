@@ -199,22 +199,28 @@ with open('hash_debug.log', 'w') as hash_log:
 status = pd.DataFrame(index=df.index, columns=df.columns, dtype=object)
 cols = df.columns.tolist()
 
-for i, col in enumerate(cols):
-    prev = cols[i-1] if i > 0 else None
-    for idx in df.index:
-        cur = df.at[idx, col]
-        if i == 0:
-            status.at[idx, col] = 'present' if cur else 'missing'
-        else:
-            prv = df.at[idx, prev]
-            if not cur:
-                status.at[idx, col] = 'missing'
-            elif not prv:
-                status.at[idx, col] = 'added'
-            elif cur == prv:
-                status.at[idx, col] = 'unchanged'
+# Create debug log for status computation
+with open('status_debug.log', 'w') as status_log:
+    status_log.write("Control,FileName,TimeSlot,CurrentHash,PreviousHash,Status\n")
+    
+    for i, col in enumerate(cols):
+        prev = cols[i-1] if i > 0 else None
+        for idx in df.index:
+            cur = df.at[idx, col]
+            if i == 0:
+                status.at[idx, col] = 'present' if cur else 'missing'
+                status_log.write(f"{idx[0]},{idx[1]},{col},{cur or 'None'},None,{status.at[idx, col]}\n")
             else:
-                status.at[idx, col] = 'changed'
+                prv = df.at[idx, prev]
+                if not cur:
+                    status.at[idx, col] = 'missing'
+                elif not prv:
+                    status.at[idx, col] = 'added'
+                elif cur == prv:
+                    status.at[idx, col] = 'unchanged'
+                else:
+                    status.at[idx, col] = 'changed'
+                status_log.write(f"{idx[0]},{idx[1]},{col},{cur or 'None'},{prv or 'None'},{status.at[idx, col]}\n")
 
 # === STYLE MAP FOR COLORS ===
 def color_map(val):
@@ -521,8 +527,8 @@ for row_idx in range(len(status.index)):
                 break
         
         # Only create links for files that have differences or are new
-        # Skip "unchanged" files - they don't need comparison links
-        if curr_status == 'unchanged':
+        # Skip "unchanged" and "missing" files - they don't need comparison links
+        if curr_status in ['unchanged', 'missing']:
             continue
             
         # Create links for: present (first occurrence), added, changed
