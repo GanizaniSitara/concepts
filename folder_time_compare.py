@@ -299,28 +299,48 @@ styled = (
 
 def create_comparison_html(file1, file2, filename, status1, status2):
     """Create a side-by-side comparison HTML."""
-    try:
-        with open(file1, 'r', encoding='utf-8', errors='replace') as f:
-            content1 = f.read()
-            lines1 = content1.splitlines(keepends=True)
-        file1_exists = True
-    except Exception as e:
-        content1 = f"Error reading file: {e}"
-        lines1 = [content1]
+    if file1 is None:
+        # First occurrence - no previous file
+        content1 = ""
+        lines1 = []
         file1_exists = False
+        hash1 = "NONE"
+        file1 = "(none)"
+    else:
+        try:
+            with open(file1, 'rb') as f:
+                binary1 = f.read()
+            with open(file1, 'r', encoding='utf-8', errors='replace') as f:
+                content1 = f.read()
+                lines1 = content1.splitlines(keepends=True)
+            file1_exists = True
+            hash1 = hashlib.sha1(binary1).hexdigest()
+        except Exception as e:
+            content1 = f"Error reading file: {e}"
+            lines1 = [content1]
+            file1_exists = False
+            hash1 = "ERROR"
         
     try:
+        with open(file2, 'rb') as f:
+            binary2 = f.read()
         with open(file2, 'r', encoding='utf-8', errors='replace') as f:
             content2 = f.read()
             lines2 = content2.splitlines(keepends=True)
         file2_exists = True
+        hash2 = hashlib.sha1(binary2).hexdigest()
     except Exception as e:
         content2 = f"Error reading file: {e}"
         lines2 = [content2]
         file2_exists = False
+        hash2 = "ERROR"
     
-    # Check if files are identical (including whitespace)
-    files_identical = content1 == content2
+    # Check if files are identical using the same logic as status computation
+    files_identical_by_hash = hash1 == hash2
+    files_identical_by_content = content1 == content2
+    
+    # The status should be based on hash comparison, not content comparison
+    actual_status = 'unchanged' if files_identical_by_hash else 'changed'
     
     # Generate unified diff
     diff = list(difflib.unified_diff(lines1, lines2, n=3))
@@ -380,13 +400,16 @@ def create_comparison_html(file1, file2, filename, status1, status2):
     <h1>File Comparison: {filename}</h1>
     
     <div class="status-info">
-        Status: {status1} → {status2} {"(Files are identical)" if files_identical else "(Files differ)"}
+        Status: {status1} → {status2} ({actual_status} by hash)
     </div>
     
     <div class="file-info">
         <strong>Previous:</strong> {file1}<br>
         <strong>Current:</strong> {file2}<br>
-        <strong>File sizes:</strong> {len(content1) if file1_exists else 'N/A'} → {len(content2) if file2_exists else 'N/A'} bytes
+        <strong>File sizes:</strong> {len(content1) if file1_exists else 'N/A'} → {len(content2) if file2_exists else 'N/A'} bytes<br>
+        <strong>SHA1 hashes:</strong> {hash1[:16]}... → {hash2[:16]}...<br>
+        <strong>Hash match:</strong> {files_identical_by_hash}<br>
+        <strong>Content match:</strong> {files_identical_by_content}
     </div>
     
     <div class="show-whitespace">
@@ -414,7 +437,10 @@ def create_comparison_html(file1, file2, filename, status1, status2):
 """
     
     if not diff:
-        html += '<div class="diff-line">Files are identical</div>'
+        if files_identical_by_hash:
+            html += '<div class="diff-line">Files are identical (same SHA1 hash)</div>'
+        else:
+            html += '<div class="diff-line">No text differences found, but SHA1 hashes differ - possible encoding issue?</div>'
     else:
         for line in diff:
             if line.startswith('+') and not line.startswith('+++'):
@@ -502,8 +528,7 @@ for row_idx in range(len(status.index)):
             
             # For first occurrence, compare against empty file
             if col_idx == 0:
-                # Create a temporary empty file path
-                prev_path = "/dev/null"
+                prev_path = None  # Will be handled in comparison function
                 prev_status = "none"
             
             # Generate the comparison HTML
