@@ -362,7 +362,7 @@ def create_comparison_html(file1, file2, filename, status1, status2):
         body {{ font-family: sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
         h1 {{ font-size: 1.5em; margin-bottom: 10px; }}
         .status-info {{ 
-            background-color: {'#c6efce' if files_identical else '#ffeb9c'}; 
+            background-color: {'#c6efce' if files_identical_by_hash else '#ffeb9c'}; 
             padding: 10px; 
             margin-bottom: 10px; 
             border-radius: 5px; 
