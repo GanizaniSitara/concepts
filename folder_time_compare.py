@@ -7,6 +7,10 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 import pandas as pd
+import sys
+import difflib
+from urllib.parse import unquote, parse_qs
+import html as html_module
 
 def open_html(abs_path):
     """Open HTML file using appropriate method for the platform."""
@@ -16,6 +20,96 @@ def open_html(abs_path):
         subprocess.run(["/mnt/c/Windows/explorer.exe", win_path])
     else:
         webbrowser.open_new_tab(f'file://{abs_path}')
+
+def show_delta():
+    """Show delta between two files when script is called with file parameters."""
+    # Parse query parameters
+    if len(sys.argv) > 1:
+        query_string = sys.argv[1]
+        if query_string.startswith('?'):
+            query_string = query_string[1:]
+        
+        params = parse_qs(query_string)
+        file1 = params.get('file1', [''])[0]
+        file2 = params.get('file2', [''])[0]
+        
+        if file1 and file2:
+            # Decode URL-encoded paths
+            file1 = unquote(file1)
+            file2 = unquote(file2)
+            
+            # Read files
+            try:
+                with open(file1, 'r', encoding='utf-8', errors='replace') as f:
+                    lines1 = f.readlines()
+            except Exception as e:
+                lines1 = [f"Error reading file: {e}\n"]
+                
+            try:
+                with open(file2, 'r', encoding='utf-8', errors='replace') as f:
+                    lines2 = f.readlines()
+            except Exception as e:
+                lines2 = [f"Error reading file: {e}\n"]
+            
+            # Generate diff
+            diff = difflib.unified_diff(
+                lines1, lines2,
+                fromfile=f"Previous: {file1}",
+                tofile=f"Current: {file2}",
+                n=3
+            )
+            
+            # Create HTML output
+            html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>File Delta - {os.path.basename(file1)} vs {os.path.basename(file2)}</title>
+    <style>
+        body {{ font-family: monospace; margin: 20px; background-color: #f5f5f5; }}
+        h1 {{ font-family: sans-serif; font-size: 1.5em; }}
+        .file-info {{ font-family: sans-serif; background-color: #e0e0e0; padding: 10px; margin: 10px 0; border-radius: 5px; }}
+        .diff-container {{ background-color: white; border: 1px solid #ddd; padding: 10px; overflow-x: auto; }}
+        .line {{ white-space: pre; font-family: 'Consolas', 'Monaco', monospace; line-height: 1.4; }}
+        .added {{ background-color: #c6efce; }}
+        .removed {{ background-color: #ffcccc; }}
+        .context {{ color: #666; }}
+    </style>
+</head>
+<body>
+    <h1>File Delta Viewer</h1>
+    <div class="file-info">
+        <strong>Previous:</strong> {file1}<br>
+        <strong>Current:</strong> {file2}
+    </div>
+    <div class="diff-container">
+"""
+            
+            for line in diff:
+                if line.startswith('+') and not line.startswith('+++'):
+                    html += f'<div class="line added">{html_module.escape(line.rstrip())}</div>\n'
+                elif line.startswith('-') and not line.startswith('---'):
+                    html += f'<div class="line removed">{html_module.escape(line.rstrip())}</div>\n'
+                elif line.startswith('@@'):
+                    html += f'<div class="line context">{html_module.escape(line.rstrip())}</div>\n'
+                elif not line.startswith('+++') and not line.startswith('---'):
+                    html += f'<div class="line">{html_module.escape(line.rstrip())}</div>\n'
+            
+            html += """
+    </div>
+</body>
+</html>"""
+            
+            # Save and open
+            delta_path = Path('delta_view.html').resolve()
+            with open(delta_path, 'w', encoding='utf-8') as f:
+                f.write(html)
+            
+            open_html(str(delta_path))
+            sys.exit(0)
+
+# Check if running in delta mode
+if len(sys.argv) > 1 and ('file1=' in sys.argv[1] or 'file2=' in sys.argv[1]):
+    show_delta()
 
 # === CONFIGURATION ===
 base_dir = r"..\evidence"  # ← Change this to your folder containing the control run subfolders
@@ -203,7 +297,70 @@ styled = (
 
 # === OUTPUT ===
 html_path = Path('control_comparison.html').resolve()
-styled.to_html(html_path, notebook=False)
+
+# First, we need to track file paths for each cell
+file_paths = {}
+for (ctrl, hour_2_slot), path in representatives.items():
+    label = hour_2_labels[hour_2_slot]
+    for fname in control_files[ctrl]:
+        fp = os.path.join(path, fname)
+        if os.path.exists(fp):
+            file_paths[(ctrl, fname, label)] = fp
+
+# Generate the HTML
+html_content = styled.to_html(html_path, notebook=False)
+
+# Post-process HTML to add links to "changed" cells
+import html as html_module
+lines = html_content.split('\n')
+new_lines = []
+
+# Track row/col for mapping to dataframe indices
+data_row = -1
+for line in lines:
+    if '<tr>' in line and '<th' in line and 'level0' in line:
+        # This is a data row
+        data_row += 1
+        data_col = -1
+    
+    if '<td' in line and 'background-color:#ffeb9c' in line and '>changed<' in line:
+        # This is a "changed" cell - find which column it's in
+        data_col = line.count('<td', 0, line.find('>changed<'))
+        
+        # Get the control and filename from the current row
+        if data_row < len(status.index):
+            ctrl, fname = status.index[data_row]
+            col_label = status.columns[data_col - 1] if data_col > 0 else None
+            
+            # Find previous file path
+            prev_path = None
+            curr_path = None
+            
+            # Get current file path
+            if (ctrl, fname, col_label) in file_paths:
+                curr_path = file_paths[(ctrl, fname, col_label)]
+                
+                # Find previous file path
+                for i in range(data_col - 1, -1, -1):
+                    prev_label = status.columns[i]
+                    if (ctrl, fname, prev_label) in file_paths:
+                        prev_path = file_paths[(ctrl, fname, prev_label)]
+                        break
+            
+            if curr_path and prev_path:
+                # Create onclick handler
+                onclick = f"navigator.clipboard.writeText('python3 folder_time_compare.py \\\"?file1={html_module.escape(prev_path)}&file2={html_module.escape(curr_path)}\\\"').then(() => alert('Command copied to clipboard! Run it in your terminal to see the delta.'));"
+                # Replace the cell content with a link
+                line = line.replace('>changed<', f' style="cursor:pointer;text-decoration:underline;" onclick="{onclick}" title="Click to copy delta command">changed<')
+    
+    new_lines.append(line)
+
+html_content = '\n'.join(new_lines)
+
+# Write the modified HTML
+with open(html_path, 'w') as f:
+    f.write(html_content)
+
 styled.to_excel('control_comparison.xlsx', merge_cells=False)
 
 print("Rendered HTML → control_comparison.html")
