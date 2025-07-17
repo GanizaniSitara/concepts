@@ -147,16 +147,18 @@ representatives = {
     for (ctrl, hour_2_slot), entries in runs.items()
 }
 
-# In debug mode, only keep the first time slot
+# In debug mode, we'll limit to first control and first file later
+# but keep all time slots for that control
+first_control = None
 if DEBUG_MODE:
-    hour_2_slots = sorted({hour_2_slot for (_, hour_2_slot) in representatives.keys()})
-    first_slot = hour_2_slots[0]
+    controls = sorted({ctrl for (ctrl, _) in representatives.keys()})
+    first_control = controls[0]
     representatives = {
         (ctrl, hour_2_slot): path
         for (ctrl, hour_2_slot), path in representatives.items()
-        if hour_2_slot == first_slot
+        if ctrl == first_control
     }
-    print(f"DEBUG: Processing only first time slot: {first_slot.strftime('%Y-%m-%d %H:%M')}")
+    print(f"DEBUG: Processing only first control: {first_control} across all time slots")
 
 # === PREPARE ROWS, COLUMNS, AND FILE LIST ===
 hour_2_slots = sorted({hour_2_slot for (_, hour_2_slot) in representatives.keys()})
@@ -182,6 +184,15 @@ for ctrl in controls:
                 fname != 'test_summary.csv'):
                 ctrl_files.add(fname)
     control_files[ctrl] = sorted(ctrl_files)
+    
+    # In debug mode, only process the first file for the first control
+    if DEBUG_MODE and ctrl == first_control and ctrl_files:
+        first_file = sorted(ctrl_files)[0]
+        control_files[ctrl] = [first_file]
+        print(f"DEBUG: Processing only first file '{first_file}' for control {ctrl}")
+    elif DEBUG_MODE and ctrl != first_control:
+        # Skip other controls in debug mode
+        control_files[ctrl] = []
 
 # build DataFrame with proper control-file mapping
 index_tuples = []
