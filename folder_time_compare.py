@@ -177,7 +177,7 @@ df = pd.DataFrame(index=index, columns=columns, dtype=object)
 # === FILL IN SHA1 HASHES FOR EACH CELL ===
 # Open log file for hash debugging
 with open('hash_debug.log', 'w') as hash_log:
-    hash_log.write("Control,TimeSlot,FileName,FilePath,SHA1Hash\n")
+    hash_log.write("Control,TimeSlot,FileName,FilePath,FileSize,SHA1Hash\n")
     
     for (ctrl, hour_2_slot), path in representatives.items():
         label = hour_2_labels[hour_2_slot]
@@ -186,12 +186,14 @@ with open('hash_debug.log', 'w') as hash_log:
             fp = os.path.join(path, fname)
             if os.path.exists(fp):
                 with open(fp, 'rb') as fh:
-                    file_hash = hashlib.sha1(fh.read()).hexdigest()
+                    content = fh.read()
+                    file_hash = hashlib.sha1(content).hexdigest()
+                    file_size = len(content)
                     df.at[(ctrl, fname), label] = file_hash
-                    hash_log.write(f"{ctrl},{hour_2_slot.strftime('%Y-%m-%d %H:%M')},{fname},{fp},{file_hash}\n")
+                    hash_log.write(f"{ctrl},{hour_2_slot.strftime('%Y-%m-%d %H:%M')},{fname},{fp},{file_size},{file_hash}\n")
             else:
                 df.at[(ctrl, fname), label] = None
-                hash_log.write(f"{ctrl},{hour_2_slot.strftime('%Y-%m-%d %H:%M')},{fname},{fp},FILE_NOT_FOUND\n")
+                hash_log.write(f"{ctrl},{hour_2_slot.strftime('%Y-%m-%d %H:%M')},{fname},{fp},0,FILE_NOT_FOUND\n")
 
 # === COMPUTE STATUS (added, missing, unchanged, changed) ===
 status = pd.DataFrame(index=df.index, columns=df.columns, dtype=object)
@@ -295,22 +297,42 @@ styled = (
           .set_table_styles(styles, overwrite=False)
 )
 
-def create_comparison_html(file1, file2, filename):
+def create_comparison_html(file1, file2, filename, status1, status2):
     """Create a side-by-side comparison HTML."""
     try:
         with open(file1, 'r', encoding='utf-8', errors='replace') as f:
-            lines1 = f.readlines()
+            content1 = f.read()
+            lines1 = content1.splitlines(keepends=True)
+        file1_exists = True
     except Exception as e:
-        lines1 = [f"Error reading file: {e}\n"]
+        content1 = f"Error reading file: {e}"
+        lines1 = [content1]
+        file1_exists = False
         
     try:
         with open(file2, 'r', encoding='utf-8', errors='replace') as f:
-            lines2 = f.readlines()
+            content2 = f.read()
+            lines2 = content2.splitlines(keepends=True)
+        file2_exists = True
     except Exception as e:
-        lines2 = [f"Error reading file: {e}\n"]
+        content2 = f"Error reading file: {e}"
+        lines2 = [content2]
+        file2_exists = False
+    
+    # Check if files are identical (including whitespace)
+    files_identical = content1 == content2
     
     # Generate unified diff
     diff = list(difflib.unified_diff(lines1, lines2, n=3))
+    
+    # Helper function to make whitespace visible
+    def show_whitespace(text):
+        return (text
+            .replace(' ', '·')  # Middle dot for spaces
+            .replace('\t', '→   ')  # Arrow for tabs
+            .replace('\r\n', '↵\n')  # Show Windows line endings
+            .replace('\r', '↵')  # Show old Mac line endings
+            .replace('\n', '↵\n'))  # Show line endings
     
     html = f"""<!DOCTYPE html>
 <html>
@@ -319,56 +341,111 @@ def create_comparison_html(file1, file2, filename):
     <style>
         body {{ font-family: sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
         h1 {{ font-size: 1.5em; margin-bottom: 10px; }}
+        .status-info {{ 
+            background-color: {'#c6efce' if files_identical else '#ffeb9c'}; 
+            padding: 10px; 
+            margin-bottom: 10px; 
+            border-radius: 5px; 
+            font-weight: bold;
+        }}
         .file-info {{ background-color: #e0e0e0; padding: 10px; margin-bottom: 20px; border-radius: 5px; font-size: 0.9em; }}
-        .comparison {{ display: flex; gap: 20px; }}
+        .comparison {{ display: flex; gap: 20px; margin-bottom: 20px; }}
         .pane {{ flex: 1; background: white; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; }}
         .pane-header {{ background: #333; color: white; padding: 10px; font-weight: bold; }}
         .pane-content {{ padding: 10px; overflow-x: auto; }}
         pre {{ margin: 0; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9em; line-height: 1.4; }}
+        .whitespace {{ background-color: #f0f0f0; color: #999; }}
         .added {{ background-color: #c6efce; }}
         .removed {{ background-color: #ffcccc; }}
-        .diff-view {{ background: white; border: 1px solid #ddd; border-radius: 5px; padding: 10px; margin-top: 20px; }}
+        .diff-view {{ background: white; border: 1px solid #ddd; border-radius: 5px; padding: 10px; }}
         .diff-line {{ font-family: 'Consolas', 'Monaco', monospace; white-space: pre; }}
+        .show-whitespace {{ margin: 10px 0; }}
+        .show-whitespace label {{ cursor: pointer; }}
     </style>
+    <script>
+        function toggleWhitespace() {{
+            const checkbox = document.getElementById('showWhitespace');
+            const elements = document.querySelectorAll('.content');
+            elements.forEach(el => {{
+                if (checkbox.checked) {{
+                    el.classList.add('whitespace');
+                }} else {{
+                    el.classList.remove('whitespace');
+                }}
+            }});
+        }}
+    </script>
 </head>
 <body>
     <h1>File Comparison: {filename}</h1>
+    
+    <div class="status-info">
+        Status: {status1} → {status2} {"(Files are identical)" if files_identical else "(Files differ)"}
+    </div>
+    
     <div class="file-info">
         <strong>Previous:</strong> {file1}<br>
-        <strong>Current:</strong> {file2}
+        <strong>Current:</strong> {file2}<br>
+        <strong>File sizes:</strong> {len(content1) if file1_exists else 'N/A'} → {len(content2) if file2_exists else 'N/A'} bytes
+    </div>
+    
+    <div class="show-whitespace">
+        <label><input type="checkbox" id="showWhitespace" onchange="toggleWhitespace()"> Show whitespace characters</label>
     </div>
     
     <div class="comparison">
         <div class="pane">
             <div class="pane-header">Previous Version</div>
             <div class="pane-content">
-                <pre>{html_module.escape(''.join(lines1))}</pre>
+                <pre class="content" data-normal="{html_module.escape(content1)}" data-whitespace="{html_module.escape(show_whitespace(content1))}">{html_module.escape(content1)}</pre>
             </div>
         </div>
         <div class="pane">
             <div class="pane-header">Current Version</div>
             <div class="pane-content">
-                <pre>{html_module.escape(''.join(lines2))}</pre>
+                <pre class="content" data-normal="{html_module.escape(content2)}" data-whitespace="{html_module.escape(show_whitespace(content2))}">{html_module.escape(content2)}</pre>
             </div>
         </div>
     </div>
     
     <div class="diff-view">
-        <h2 style="font-size: 1.2em;">Unified Diff</h2>
+        <h2 style="font-size: 1.2em;">Unified Diff {f"(No differences found)" if not diff else ""}</h2>
         <div>
 """
     
-    for line in diff:
-        if line.startswith('+') and not line.startswith('+++'):
-            html += f'<div class="diff-line added">{html_module.escape(line.rstrip())}</div>'
-        elif line.startswith('-') and not line.startswith('---'):
-            html += f'<div class="diff-line removed">{html_module.escape(line.rstrip())}</div>'
-        else:
-            html += f'<div class="diff-line">{html_module.escape(line.rstrip())}</div>'
+    if not diff:
+        html += '<div class="diff-line">Files are identical</div>'
+    else:
+        for line in diff:
+            if line.startswith('+') and not line.startswith('+++'):
+                html += f'<div class="diff-line added">{html_module.escape(line.rstrip())}</div>'
+            elif line.startswith('-') and not line.startswith('---'):
+                html += f'<div class="diff-line removed">{html_module.escape(line.rstrip())}</div>'
+            else:
+                html += f'<div class="diff-line">{html_module.escape(line.rstrip())}</div>'
     
     html += """
         </div>
     </div>
+    
+    <script>
+        // Update content based on checkbox state
+        document.querySelectorAll('.content').forEach(el => {
+            el.textContent = el.dataset.normal;
+        });
+        
+        function toggleWhitespace() {
+            const checkbox = document.getElementById('showWhitespace');
+            document.querySelectorAll('.content').forEach(el => {
+                el.textContent = checkbox.checked ? el.dataset.whitespace : el.dataset.normal;
+                if (checkbox.checked) {
+                    el.classList.add('whitespace');
+                } else {
+                    el.classList.remove('whitespace');
+                }
+            });
+        }
+    </script>
 </body>
 </html>"""
     
@@ -394,34 +471,51 @@ comparison_count = 0
 for row_idx in range(len(status.index)):
     ctrl, fname = status.index[row_idx]
     for col_idx in range(len(status.columns)):
-        if status.iloc[row_idx, col_idx] == 'changed':
-            # Find the current and previous file paths
-            col_label = status.columns[col_idx]
-            curr_path = file_paths.get((ctrl, fname, col_label))
+        curr_status = status.iloc[row_idx, col_idx]
+        
+        # Skip missing files
+        if curr_status == 'missing':
+            continue
             
-            # Find previous file path
-            prev_path = None
-            for i in range(col_idx - 1, -1, -1):
-                prev_label = status.columns[i]
-                if (ctrl, fname, prev_label) in file_paths:
-                    prev_path = file_paths[(ctrl, fname, prev_label)]
-                    break
+        # Find the current file path
+        col_label = status.columns[col_idx]
+        curr_path = file_paths.get((ctrl, fname, col_label))
+        
+        if not curr_path:
+            continue
             
-            if curr_path and prev_path:
-                # Create a unique filename for this comparison
-                comparison_id = f"delta_{comparison_count:04d}.html"
-                comparison_count += 1
-                
-                # Generate the comparison HTML
-                comparison_html = create_comparison_html(prev_path, curr_path, fname)
-                
-                # Save the comparison HTML
-                delta_path = Path(comparison_id).resolve()
-                with open(delta_path, 'w', encoding='utf-8') as f:
-                    f.write(comparison_html)
-                
-                # Update the status cell with a hyperlink
-                status_with_links.iloc[row_idx, col_idx] = f'<a href="{comparison_id}" target="_blank">changed</a>'
+        # Find previous file path and status
+        prev_path = None
+        prev_status = 'missing'
+        for i in range(col_idx - 1, -1, -1):
+            prev_label = status.columns[i]
+            if (ctrl, fname, prev_label) in file_paths:
+                prev_path = file_paths[(ctrl, fname, prev_label)]
+                prev_status = status.iloc[row_idx, i]
+                break
+        
+        # If this is the first occurrence or we have a previous version
+        if col_idx == 0 or prev_path:
+            # Create a unique filename for this comparison
+            comparison_id = f"delta_{comparison_count:04d}.html"
+            comparison_count += 1
+            
+            # For first occurrence, compare against empty file
+            if col_idx == 0:
+                # Create a temporary empty file path
+                prev_path = "/dev/null"
+                prev_status = "none"
+            
+            # Generate the comparison HTML
+            comparison_html = create_comparison_html(prev_path, curr_path, fname, prev_status, curr_status)
+            
+            # Save the comparison HTML
+            delta_path = Path(comparison_id).resolve()
+            with open(delta_path, 'w', encoding='utf-8') as f:
+                f.write(comparison_html)
+            
+            # Update the status cell with a hyperlink
+            status_with_links.iloc[row_idx, col_idx] = f'<a href="{comparison_id}" target="_blank">{curr_status}</a>'
 
 # Apply styling but render HTML content (not escape it)
 styled = (
