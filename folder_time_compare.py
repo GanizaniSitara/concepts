@@ -147,6 +147,17 @@ representatives = {
     for (ctrl, hour_2_slot), entries in runs.items()
 }
 
+# In debug mode, only keep the first time slot
+if DEBUG_MODE:
+    hour_2_slots = sorted({hour_2_slot for (_, hour_2_slot) in representatives.keys()})
+    first_slot = hour_2_slots[0]
+    representatives = {
+        (ctrl, hour_2_slot): path
+        for (ctrl, hour_2_slot), path in representatives.items()
+        if hour_2_slot == first_slot
+    }
+    print(f"DEBUG: Processing only first time slot: {first_slot.strftime('%Y-%m-%d %H:%M')}")
+
 # === PREPARE ROWS, COLUMNS, AND FILE LIST ===
 hour_2_slots = sorted({hour_2_slot for (_, hour_2_slot) in representatives.keys()})
 # map each 2-hour slot to a header label with date on top line, time range below
@@ -171,11 +182,6 @@ for ctrl in controls:
                 fname != 'test_summary.csv'):
                 ctrl_files.add(fname)
     control_files[ctrl] = sorted(ctrl_files)
-    
-    # In debug mode, only process the first file
-    if DEBUG_MODE and ctrl_files:
-        control_files[ctrl] = [sorted(ctrl_files)[0]]
-        print(f"DEBUG: Processing only first file '{control_files[ctrl][0]}' for control {ctrl}")
 
 # build DataFrame with proper control-file mapping
 index_tuples = []
@@ -496,11 +502,12 @@ def create_comparison_html(file1, file2, filename, status1, status2):
     return html
 
 # === OUTPUT ===
-# Create output directory for HTML files
-output_dir = Path('comparison_output')
-output_dir.mkdir(exist_ok=True)
+# Create output directory for delta HTML files
+delta_output_dir = Path('comparison_output')
+delta_output_dir.mkdir(exist_ok=True)
 
-html_path = output_dir / 'control_comparison.html'
+# Main comparison stays in current directory
+html_path = Path('control_comparison.html').resolve()
 
 # First, we need to track file paths for each cell
 file_paths = {}
@@ -561,13 +568,13 @@ for row_idx in range(len(status.index)):
             # Generate the comparison HTML
             comparison_html = create_comparison_html(prev_path, curr_path, fname, prev_status, curr_status)
             
-            # Save the comparison HTML in the output directory
-            delta_path = output_dir / comparison_id
+            # Save the comparison HTML in the delta output directory
+            delta_path = delta_output_dir / comparison_id
             with open(delta_path, 'w', encoding='utf-8') as f:
                 f.write(comparison_html)
             
-            # Update the status cell with a hyperlink
-            status_with_links.iloc[row_idx, col_idx] = f'<a href="{comparison_id}" target="_blank">{curr_status}</a>'
+            # Update the status cell with a hyperlink (relative to main HTML file)
+            status_with_links.iloc[row_idx, col_idx] = f'<a href="comparison_output/{comparison_id}" target="_blank">{curr_status}</a>'
 
 # Apply styling but render HTML content (not escape it)
 styled = (
@@ -593,7 +600,7 @@ if DEBUG_MODE:
     print("DEBUG MODE: Processing complete. Check debug logs:")
     print("  - hash_debug.log: File hash computation")
     print("  - status_debug.log: Status comparison logic")
-    print(f"  - {html_path}: Comparison table")
+    print(f"  - control_comparison.html: Main comparison table")
     print("  - comparison_output/delta_*.html: Individual file comparisons")
     sys.exit(0)
 
