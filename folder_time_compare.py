@@ -308,7 +308,7 @@ for (ctrl, hour_2_slot), path in representatives.items():
             file_paths[(ctrl, fname, label)] = fp
 
 # Generate the HTML
-html_content = styled.to_html(html_path, notebook=False)
+html_content = styled.to_html(notebook=False)
 
 # Post-process HTML to add links to "changed" cells
 import html as html_module
