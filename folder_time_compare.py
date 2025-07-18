@@ -185,11 +185,9 @@ for ctrl in controls:
                 ctrl_files.add(fname)
     control_files[ctrl] = sorted(ctrl_files)
     
-    # In debug mode, only process the first file for the first control
+    # In debug mode, process all files for the first control only
     if DEBUG_MODE and ctrl == first_control and ctrl_files:
-        first_file = sorted(ctrl_files)[0]
-        control_files[ctrl] = [first_file]
-        print(f"DEBUG: Processing only first file '{first_file}' for control {ctrl}")
+        print(f"DEBUG: Processing all {len(ctrl_files)} files for control {ctrl}")
     elif DEBUG_MODE and ctrl != first_control:
         # Skip other controls in debug mode
         control_files[ctrl] = []
