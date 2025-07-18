@@ -147,18 +147,18 @@ representatives = {
     for (ctrl, hour_2_slot), entries in runs.items()
 }
 
-# In debug mode, we'll limit to first control and first file later
-# but keep all time slots for that control
-first_control = None
+# In debug mode, we'll limit to first two controls
+# but keep all time slots for those controls
+debug_controls = []
 if DEBUG_MODE:
     controls = sorted({ctrl for (ctrl, _) in representatives.keys()})
-    first_control = controls[0]
+    debug_controls = controls[:2]  # Take first two controls
     representatives = {
         (ctrl, hour_2_slot): path
         for (ctrl, hour_2_slot), path in representatives.items()
-        if ctrl == first_control
+        if ctrl in debug_controls
     }
-    print(f"DEBUG: Processing only first control: {first_control} across all time slots")
+    print(f"DEBUG: Processing first two controls: {', '.join(debug_controls)} across all time slots")
 
 # === PREPARE ROWS, COLUMNS, AND FILE LIST ===
 hour_2_slots = sorted({hour_2_slot for (_, hour_2_slot) in representatives.keys()})
@@ -185,10 +185,10 @@ for ctrl in controls:
                 ctrl_files.add(fname)
     control_files[ctrl] = sorted(ctrl_files)
     
-    # In debug mode, process all files for the first control only
-    if DEBUG_MODE and ctrl == first_control and ctrl_files:
+    # In debug mode, process all files for the first two controls only
+    if DEBUG_MODE and ctrl in debug_controls and ctrl_files:
         print(f"DEBUG: Processing all {len(ctrl_files)} files for control {ctrl}")
-    elif DEBUG_MODE and ctrl != first_control:
+    elif DEBUG_MODE and ctrl not in debug_controls:
         # Skip other controls in debug mode
         control_files[ctrl] = []
 
