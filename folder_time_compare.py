@@ -120,7 +120,7 @@ if DEBUG_MODE:
 
 # === CONFIGURATION ===
 base_dir = r"..\evidence"  # ← Change this to your folder containing the control run subfolders
-pattern = re.compile(r'.*CTRL-(\d+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})')
+pattern = re.compile(r'.*(CTRL-|ORAC_)(\d+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})')
 
 # === DISCOVER RUNS AND PICK ONE PER CONTROL PER HOUR ===
 runs = {}
@@ -131,9 +131,9 @@ for d in os.listdir(base_dir):
     m = pattern.match(d)
     if not m:
         continue
-    ctrl = f'CTRL-{m.group(1)}'
+    ctrl = f'{m.group(1)}{m.group(2)}'  # This gives us "CTRL-1" or "ORAC_1"
     dt = datetime.strptime(
-        f'{m.group(2)} {m.group(3).replace("-", ":")}',
+        f'{m.group(3)} {m.group(4).replace("-", ":")}',
         '%Y-%m-%d %H:%M'
     )
     # Create 2-hour time slots (00:00, 02:00, 04:00, 06:00, 08:00, 10:00, etc.)
