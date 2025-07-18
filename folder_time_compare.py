@@ -267,10 +267,18 @@ with open('status_debug.log', 'w') as status_log:
                 status.at[idx, col] = 'present' if cur else 'missing'
                 status_log.write(f"{idx[0]},{idx[1]},{col},{cur or 'None'},None,{status.at[idx, col]}\n")
             else:
-                prv = df.at[idx, prev]
+                # Find the previous value, skipping "not run" slots
+                prv = None
+                prev_col_idx = None
+                for j in range(i-1, -1, -1):
+                    if status.at[idx, cols[j]] != 'not run':
+                        prv = df.at[idx, cols[j]]
+                        prev_col_idx = j
+                        break
+                
                 if not cur:
                     status.at[idx, col] = 'missing'
-                elif not prv:
+                elif prv is None:  # No previous run found
                     status.at[idx, col] = 'added'
                 elif cur == prv:
                     status.at[idx, col] = 'unchanged'
@@ -578,10 +586,13 @@ for row_idx in range(len(status.index)):
         if not curr_path:
             continue
             
-        # Find previous file path and status
+        # Find previous file path and status, skipping "not run" slots
         prev_path = None
         prev_status = 'missing'
         for i in range(col_idx - 1, -1, -1):
+            # Skip "not run" slots
+            if status.iloc[row_idx, i] == 'not run':
+                continue
             prev_label = status.columns[i]
             if (ctrl, fname, prev_label) in file_paths:
                 prev_path = file_paths[(ctrl, fname, prev_label)]
