@@ -145,9 +145,11 @@ for d in os.listdir(base_dir):
 # Note: If multiple runs exist in the same 2-hour window, we take the latest one
 representatives = {}
 multiple_runs_log = []
+multiple_runs_info = {}  # Store info about multiple runs for later use
 for (ctrl, hour_2_slot), entries in runs.items():
     if len(entries) > 1:
         multiple_runs_log.append(f"{ctrl} in {hour_2_slot.strftime('%Y-%m-%d %H:%M')} has {len(entries)} runs")
+        multiple_runs_info[(ctrl, hour_2_slot)] = len(entries)
     representatives[(ctrl, hour_2_slot)] = max(entries, key=lambda x: x[0])[1]
 
 # Log multiple runs if found
@@ -568,6 +570,30 @@ for (ctrl, hour_2_slot), path in representatives.items():
 # Create a modified status DataFrame with hyperlinks for "changed" cells
 status_with_links = status.copy()
 
+# Add multiple run indicators to all cells (not just linked ones)
+for row_idx in range(len(status.index)):
+    ctrl, fname = status.index[row_idx]
+    for col_idx in range(len(status.columns)):
+        col_label = status.columns[col_idx]
+        curr_status = status.iloc[row_idx, col_idx]
+        
+        # Skip if already processed or if "not run"
+        if curr_status == 'not run':
+            continue
+            
+        # Find the hour_2_slot for this column
+        hour_2_slot = None
+        for (c, h), path in representatives.items():
+            if c == ctrl and hour_2_labels[h] == col_label:
+                hour_2_slot = h
+                break
+        
+        # Add multiple run indicator if needed
+        if (ctrl, hour_2_slot) in multiple_runs_info:
+            num_runs = multiple_runs_info[(ctrl, hour_2_slot)]
+            if curr_status in ['unchanged', 'missing']:  # Non-linked statuses
+                status_with_links.iloc[row_idx, col_idx] = f'{curr_status} ({num_runs}×)'
+
 # Generate comparison HTML files and update status cells
 comparison_count = 0
 for row_idx in range(len(status.index)):
@@ -623,8 +649,23 @@ for row_idx in range(len(status.index)):
             with open(delta_path, 'w', encoding='utf-8') as f:
                 f.write(comparison_html)
             
+            # Check if this time slot had multiple runs
+            ctrl, fname = status.index[row_idx]
+            # Find the hour_2_slot for this column
+            hour_2_slot = None
+            for (c, h), path in representatives.items():
+                if c == ctrl and hour_2_labels[h] == col_label:
+                    hour_2_slot = h
+                    break
+            
+            # Add multiple run indicator if needed
+            status_text = curr_status
+            if (ctrl, hour_2_slot) in multiple_runs_info:
+                num_runs = multiple_runs_info[(ctrl, hour_2_slot)]
+                status_text = f'{curr_status} ({num_runs}×)'
+            
             # Update the status cell with a hyperlink (relative to main HTML file)
-            status_with_links.iloc[row_idx, col_idx] = f'<a href="comparison_output/{comparison_id}" target="_blank">{curr_status}</a>'
+            status_with_links.iloc[row_idx, col_idx] = f'<a href="comparison_output/{comparison_id}" target="_blank" title="{num_runs if (ctrl, hour_2_slot) in multiple_runs_info else 1} run(s) in this time window">{status_text}</a>'
 
 # Apply styling but render HTML content (not escape it)
 styled = (
