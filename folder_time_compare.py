@@ -142,10 +142,21 @@ for d in os.listdir(base_dir):
     runs.setdefault((ctrl, hour_2_slot), []).append((dt, p))
 
 # keep the latest run within each 2-hour slot for each control
-representatives = {
-    (ctrl, hour_2_slot): max(entries, key=lambda x: x[0])[1]
-    for (ctrl, hour_2_slot), entries in runs.items()
-}
+# Note: If multiple runs exist in the same 2-hour window, we take the latest one
+representatives = {}
+multiple_runs_log = []
+for (ctrl, hour_2_slot), entries in runs.items():
+    if len(entries) > 1:
+        multiple_runs_log.append(f"{ctrl} in {hour_2_slot.strftime('%Y-%m-%d %H:%M')} has {len(entries)} runs")
+    representatives[(ctrl, hour_2_slot)] = max(entries, key=lambda x: x[0])[1]
+
+# Log multiple runs if found
+if multiple_runs_log and not DEBUG_MODE:
+    print("Warning: Multiple runs found in same time window (using latest):")
+    for msg in multiple_runs_log[:5]:  # Show first 5
+        print(f"  - {msg}")
+    if len(multiple_runs_log) > 5:
+        print(f"  ... and {len(multiple_runs_log) - 5} more")
 
 # In debug mode, we'll limit to first two controls
 # but keep all time slots for those controls
@@ -226,6 +237,16 @@ with open('hash_debug.log', 'w') as hash_log:
 status = pd.DataFrame(index=df.index, columns=df.columns, dtype=object)
 cols = df.columns.tolist()
 
+# First, check which controls were actually run in each time slot
+controls_run_per_slot = {}
+for col in cols:
+    hour_slot_str = col.split('\n')[0] + ' ' + col.split('\n')[1].split('-')[0]
+    controls_in_slot = set()
+    for (ctrl, hour_2_slot), path in representatives.items():
+        if hour_2_labels[hour_2_slot] == col:
+            controls_in_slot.add(ctrl)
+    controls_run_per_slot[col] = controls_in_slot
+
 # Create debug log for status computation
 with open('status_debug.log', 'w') as status_log:
     status_log.write("Control,FileName,TimeSlot,CurrentHash,PreviousHash,Status\n")
@@ -233,6 +254,14 @@ with open('status_debug.log', 'w') as status_log:
     for i, col in enumerate(cols):
         prev = cols[i-1] if i > 0 else None
         for idx in df.index:
+            ctrl = idx[0]  # Get control name from index
+            
+            # Check if this control was run in this time slot
+            if ctrl not in controls_run_per_slot[col]:
+                status.at[idx, col] = 'not run'
+                status_log.write(f"{idx[0]},{idx[1]},{col},NotRun,N/A,not run\n")
+                continue
+                
             cur = df.at[idx, col]
             if i == 0:
                 status.at[idx, col] = 'present' if cur else 'missing'
@@ -252,6 +281,7 @@ with open('status_debug.log', 'w') as status_log:
 # === STYLE MAP FOR COLORS ===
 def color_map(val):
     return {
+        'not run':    'background-color:#e6e6e6; color:#999',  # Light gray with gray text
         'missing':    'background-color:#f2f2f2',
         'present':    'background-color:#dddddd',
         'added':      'background-color:#c6efce',
@@ -559,8 +589,8 @@ for row_idx in range(len(status.index)):
                 break
         
         # Only create links for files that have differences or are new
-        # Skip "unchanged" and "missing" files - they don't need comparison links
-        if curr_status in ['unchanged', 'missing']:
+        # Skip "unchanged", "missing", and "not run" files - they don't need comparison links
+        if curr_status in ['unchanged', 'missing', 'not run']:
             continue
             
         # Create links for: present (first occurrence), added, changed
