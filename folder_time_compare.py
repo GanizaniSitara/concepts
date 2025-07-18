@@ -147,18 +147,12 @@ representatives = {
     for (ctrl, hour_2_slot), entries in runs.items()
 }
 
-# In debug mode, we'll limit to first two controls
-# but keep all time slots for those controls
+# In debug mode, we'll process all controls but with enhanced logging
 debug_controls = []
 if DEBUG_MODE:
     controls = sorted({ctrl for (ctrl, _) in representatives.keys()})
-    debug_controls = controls[:2]  # Take first two controls
-    representatives = {
-        (ctrl, hour_2_slot): path
-        for (ctrl, hour_2_slot), path in representatives.items()
-        if ctrl in debug_controls
-    }
-    print(f"DEBUG: Processing first two controls: {', '.join(debug_controls)} across all time slots")
+    debug_controls = controls  # Take all controls in debug mode now
+    print(f"DEBUG: Processing all {len(debug_controls)} controls across all time slots")
 
 # === PREPARE ROWS, COLUMNS, AND FILE LIST ===
 hour_2_slots = sorted({hour_2_slot for (_, hour_2_slot) in representatives.keys()})
@@ -185,12 +179,9 @@ for ctrl in controls:
                 ctrl_files.add(fname)
     control_files[ctrl] = sorted(ctrl_files)
     
-    # In debug mode, process all files for the first two controls only
-    if DEBUG_MODE and ctrl in debug_controls and ctrl_files:
+    # In debug mode, process all files for all controls with logging
+    if DEBUG_MODE and ctrl_files:
         print(f"DEBUG: Processing all {len(ctrl_files)} files for control {ctrl}")
-    elif DEBUG_MODE and ctrl not in debug_controls:
-        # Skip other controls in debug mode
-        control_files[ctrl] = []
 
 # build DataFrame with proper control-file mapping
 index_tuples = []
