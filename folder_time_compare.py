@@ -634,14 +634,13 @@ styled.to_excel('control_comparison.xlsx', merge_cells=False)
 print(f"Rendered HTML → {html_path}")
 print("Rendered Excel → control_comparison.xlsx")
 
-# In debug mode, exit after processing
+# In debug mode, show summary before opening
 if DEBUG_MODE:
     print("DEBUG MODE: Processing complete. Check debug logs:")
     print("  - hash_debug.log: File hash computation")
     print("  - status_debug.log: Status comparison logic")
     print(f"  - control_comparison.html: Main comparison table")
     print("  - comparison_output/delta_*.html: Individual file comparisons")
-    sys.exit(0)
 
 # Open the HTML report
 open_html(str(html_path))
