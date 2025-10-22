@@ -1,6 +1,6 @@
-' ===== ArchiveBackup.bas =====
-' Outlook VBA: Export Online Archive to .MSG with checkpoint/restart & logging
-' Includes: safe filename/path builder (avoids STG_E_INVALIDNAME) and all helpers.
+' ===== ArchiveBackup_LateBound.bas =====
+' Export Online Archive to .MSG with checkpoint/restart & logging
+' Late-bound (no Outlook types in signatures), safe filename/path builder.
 
 Option Explicit
 
@@ -12,15 +12,19 @@ Private Const LOG_PATH As String = "D:\MailBackup\backup.log"           ' Log fi
 Private Const CHECKPOINT_CSV As String = "D:\MailBackup\checkpoint.csv" ' Checkpoint CSV
 
 ' Re-export rule on rerun:
-'   True  = overwrite only if the item LastModificationTime changed since last run
-'   False = skip if target file already exists
 Private Const REEXPORT_IF_CHANGED As Boolean = True
 
-' Retry count for transient errors (e.g., RPC/Exchange throttling)
+' Retry count for transient errors
 Private Const MAX_RETRIES As Long = 3
 
 ' Exclude folders by (case-insensitive) name
 Private ExcludedFolders As Variant
+
+' ---------------------------
+' Outlook enum values (late-bound)
+' ---------------------------
+Private Const olMSGUnicode As Long = 9
+Private Const olMail As Long = 43
 
 ' ---------------------------
 ' PATH/LENGTH SAFEGUARDS
@@ -32,8 +36,8 @@ Private Const MAX_FILENAME As Long = 120   ' cap filename segment
 ' ENTRY POINT
 ' ===========================
 Public Sub ArchiveBackup_Run()
-    Dim ses As Outlook.NameSpace
-    Dim st As Outlook.Store
+    Dim ses As Object          ' Outlook.NameSpace
+    Dim st As Object           ' Outlook.Store
     Dim foundArchive As Boolean
     foundArchive = False
 
@@ -47,6 +51,7 @@ Public Sub ArchiveBackup_Run()
     LogLine "=== START " & Now & " ==="
     LogLine "Export root: " & ROOT_EXPORT
 
+    ' In Outlook VBA, Application is Outlook.Application
     Set ses = Application.Session
 
     For Each st In ses.Stores
@@ -73,8 +78,8 @@ End Sub
 ' ===========================
 ' STORE / FOLDER WALK
 ' ===========================
-Private Sub ProcessStore(ByVal st As Outlook.Store)
-    Dim rootFld As Outlook.Folder
+Private Sub ProcessStore(ByVal st As Object)
+    Dim rootFld As Object
     Dim basePath As String
 
     On Error GoTo EH
@@ -89,9 +94,9 @@ EH:
     LogLine "ERROR in ProcessStore: " & Err.Number & " - " & Err.Description
 End Sub
 
-Private Sub WalkFolder(ByVal fld As Outlook.Folder, ByVal currentPath As String, ByVal storeId As String)
+Private Sub WalkFolder(ByVal fld As Object, ByVal currentPath As String, ByVal storeId As String)
     Dim thisPath As String
-    Dim sf As Outlook.Folder
+    Dim sf As Object
 
     On Error GoTo EH
 
@@ -116,8 +121,8 @@ End Sub
 ' ===========================
 ' EXPORT ITEMS
 ' ===========================
-Private Sub ExportFolderItems(ByVal fld As Outlook.Folder, ByVal targetPath As String, ByVal storeId As String)
-    Dim itms As Outlook.Items
+Private Sub ExportFolderItems(ByVal fld As Object, ByVal targetPath As String, ByVal storeId As String)
+    Dim itms As Object
     Dim i As Long
     Dim it As Object
 
@@ -152,9 +157,9 @@ EH:
     LogLine "ERROR in ExportFolderItems [" & FullFolderPath(fld) & "]: " & Err.Number & " - " & Err.Description
 End Sub
 
-Private Sub ExportOneMail(ByVal mail As Outlook.MailItem, ByVal targetPath As String, ByVal storeId As String, ByVal parentFld As Outlook.Folder)
+Private Sub ExportOneMail(ByVal mail As Object, ByVal targetPath As String, ByVal storeId As String, ByVal parentFld As Object)
     Dim eNum As Long
-    Dim pa As Outlook.PropertyAccessor
+    Dim pa As Object
     Dim internetId As String
     Dim conv As String
     Dim subj As String
@@ -220,7 +225,6 @@ End Sub
 ' ===========================
 ' CHECKPOINT CSV
 ' ===========================
-' CSV columns: StoreID,FolderID,EntryID,LastModUTC,FilePath
 Private Function HasItemChangedSinceCheckpoint(ByVal storeId As String, ByVal folderId As String, _
                                                ByVal entryId As String, ByVal lastMod As Date, _
                                                ByVal filePath As String) As Boolean
@@ -250,7 +254,6 @@ Private Function HasItemChangedSinceCheckpoint(ByVal storeId As String, ByVal fo
                 If Not FileExists(filePath) Then
                     HasItemChangedSinceCheckpoint = True
                 Else
-                    ' Compare as doubles (safer than string compare)
                     If CDbl(lastMod) > CDbl(CDate(cpLast)) Then
                         HasItemChangedSinceCheckpoint = True
                     Else
@@ -293,7 +296,7 @@ End Sub
 ' ===========================
 ' HELPERS
 ' ===========================
-Private Function IsExchangeArchiveStore(ByVal st As Outlook.Store) As Boolean
+Private Function IsExchangeArchiveStore(ByVal st As Object) As Boolean
     Dim est As Variant
     On Error Resume Next
     est = CallByName(st, "ExchangeStoreType", VbGet)
@@ -319,7 +322,7 @@ Private Function ShouldExcludeFolder(ByVal name As String) As Boolean
     ShouldExcludeFolder = False
 End Function
 
-Private Function FullFolderPath(ByVal fld As Outlook.Folder) As String
+Private Function FullFolderPath(ByVal fld As Object) As String
     On Error Resume Next
     FullFolderPath = fld.FolderPath
 End Function
@@ -332,7 +335,7 @@ Private Function Nz(ByVal s As Variant, ByVal fallback As String) As String
     End If
 End Function
 
-Private Function SafeGetInternetMessageId(ByVal pa As Outlook.PropertyAccessor) As String
+Private Function SafeGetInternetMessageId(ByVal pa As Object) As String
     Dim val As String
     On Error Resume Next
     val = pa.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x1035001E")
