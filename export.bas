@@ -158,10 +158,10 @@ EH:
 End Sub
 
 Private Sub ExportOneMail(ByVal mail As Object, _
-                         ByVal targetPath As String, _
-                         ByVal storeId As String, _
-                         ByVal parentFld As Object)
-    Dim eNum As Long
+    ByVal targetPath As String, _
+    ByVal storeId As String, _
+    ByVal parentFld As Object)
+    Dim errorNum As Long
     Dim pa As Object
     Dim internetId As String
     Dim conv As String
@@ -205,13 +205,13 @@ Private Sub ExportOneMail(ByVal mail As Object, _
     For attempt = 1 To MAX_RETRIES
         On Error Resume Next
         mail.SaveAs filePath, olMSGUnicode
-        eNum = Err.Number
-        If eNum = 0 Then
+        errorNum = Err.Number
+        If errorNum = 0 Then
             On Error GoTo EH
             UpdateCheckpoint storeId, parentFld.EntryID, mail.EntryID, mail.LastModificationTime, filePath
             Exit For
         Else
-            LogLine "WARN save fail try " & attempt & " for [" & filePath & "]: " & eNum & " - " & Err.Description
+            LogLine "WARN save fail try " & attempt & " for [" & filePath & "]: " & errorNum & " - " & Err.Description
             Err.Clear
             On Error GoTo EH
             DoEvents
@@ -229,10 +229,10 @@ End Sub
 ' CHECKPOINT CSV
 ' ===========================
 Private Function HasItemChangedSinceCheckpoint(ByVal storeId As String, _
-                                               ByVal folderId As String, _
-                                               ByVal entryId As String, _
-                                               ByVal lastMod As Date, _
-                                               ByVal filePath As String) As Boolean
+    ByVal folderId As String, _
+    ByVal entryId As String, _
+    ByVal lastMod As Date, _
+    ByVal filePath As String) As Boolean
     Dim f As Integer
     Dim line As String
     Dim found As Boolean
@@ -280,10 +280,10 @@ EH:
 End Function
 
 Private Sub UpdateCheckpoint(ByVal storeId As String, _
-                             ByVal folderId As String, _
-                             ByVal entryId As String, _
-                             ByVal lastMod As Date, _
-                             ByVal filePath As String)
+    ByVal folderId As String, _
+    ByVal entryId As String, _
+    ByVal lastMod As Date, _
+    ByVal filePath As String)
     Dim f As Integer
 
     On Error GoTo EH
@@ -475,8 +475,8 @@ Private Function SimpleHash8(ByVal s As String) As String
 End Function
 
 Private Function BuildSafeFilePath(ByVal folderPath As String, _
-                                   ByVal baseName As String, _
-                                   ByVal entryId As String) As String
+    ByVal baseName As String, _
+    ByVal entryId As String) As String
 
     Dim namePart As String
     Dim fullPath As String
