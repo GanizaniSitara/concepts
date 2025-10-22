@@ -157,7 +157,10 @@ EH:
     LogLine "ERROR in ExportFolderItems [" & FullFolderPath(fld) & "]: " & Err.Number & " - " & Err.Description
 End Sub
 
-Private Sub ExportOneMail(ByVal mail As Object, ByVal targetPath As String, ByVal storeId As String, ByVal parentFld As Object)
+Private Sub ExportOneMail(ByVal mail As Object, _
+                         ByVal targetPath As String, _
+                         ByVal storeId As String, _
+                         ByVal parentFld As Object)
     Dim eNum As Long
     Dim pa As Object
     Dim internetId As String
@@ -225,8 +228,10 @@ End Sub
 ' ===========================
 ' CHECKPOINT CSV
 ' ===========================
-Private Function HasItemChangedSinceCheckpoint(ByVal storeId As String, ByVal folderId As String, _
-                                               ByVal entryId As String, ByVal lastMod As Date, _
+Private Function HasItemChangedSinceCheckpoint(ByVal storeId As String, _
+                                               ByVal folderId As String, _
+                                               ByVal entryId As String, _
+                                               ByVal lastMod As Date, _
                                                ByVal filePath As String) As Boolean
     Dim f As Integer
     Dim line As String
@@ -274,8 +279,10 @@ EH:
     HasItemChangedSinceCheckpoint = True
 End Function
 
-Private Sub UpdateCheckpoint(ByVal storeId As String, ByVal folderId As String, _
-                             ByVal entryId As String, ByVal lastMod As Date, _
+Private Sub UpdateCheckpoint(ByVal storeId As String, _
+                             ByVal folderId As String, _
+                             ByVal entryId As String, _
+                             ByVal lastMod As Date, _
                              ByVal filePath As String)
     Dim f As Integer
 
@@ -467,10 +474,9 @@ Private Function SimpleHash8(ByVal s As String) As String
     SimpleHash8 = Right$("00000000" & Hex$(h), 8)
 End Function
 
-Private Function BuildSafeFilePath( _
-        ByVal folderPath As String, _
-        ByVal baseName As String, _
-        ByVal entryId As String) As String
+Private Function BuildSafeFilePath(ByVal folderPath As String, _
+                                   ByVal baseName As String, _
+                                   ByVal entryId As String) As String
 
     Dim namePart As String
     Dim fullPath As String
