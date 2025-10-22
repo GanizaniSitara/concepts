@@ -1,17 +1,15 @@
 ' ===== ArchiveBackup.bas =====
 ' Outlook VBA: Export Online Archive to .MSG with checkpoint/restart & logging
-' Fixes:
-'  - All Dim statements moved before executable code (VBA requirement)
-'  - Safe filename/path builder to prevent STG_E_INVALIDNAME (-2147286788)
+' Includes: safe filename/path builder (avoids STG_E_INVALIDNAME) and all helpers.
 
 Option Explicit
 
 ' ---------------------------
 ' CONFIG — EDIT THESE
 ' ---------------------------
-Private Const ROOT_EXPORT As String = "D:\MailBackup"                ' Root backup folder
-Private Const LOG_PATH As String = "D:\MailBackup\backup.log"        ' Log file
-Private Const CHECKPOINT_CSV As String = "D:\MailBackup\checkpoint.csv" ' Checkpoint file
+Private Const ROOT_EXPORT As String = "D:\MailBackup"                   ' Root backup folder
+Private Const LOG_PATH As String = "D:\MailBackup\backup.log"           ' Log file
+Private Const CHECKPOINT_CSV As String = "D:\MailBackup\checkpoint.csv" ' Checkpoint CSV
 
 ' Re-export rule on rerun:
 '   True  = overwrite only if the item LastModificationTime changed since last run
@@ -30,9 +28,9 @@ Private ExcludedFolders As Variant
 Private Const MAX_FULLPATH As Long = 240   ' keep under ~260 for COM/OOM saves
 Private Const MAX_FILENAME As Long = 120   ' cap filename segment
 
-' ---------------------------
+' ===========================
 ' ENTRY POINT
-' ---------------------------
+' ===========================
 Public Sub ArchiveBackup_Run()
     Dim ses As Outlook.NameSpace
     Dim st As Outlook.Store
@@ -72,9 +70,9 @@ EH:
     MsgBox "Fatal error: " & Err.Description & vbCrLf & "See log: " & LOG_PATH, vbCritical
 End Sub
 
-' ---------------------------
+' ===========================
 ' STORE / FOLDER WALK
-' ---------------------------
+' ===========================
 Private Sub ProcessStore(ByVal st As Outlook.Store)
     Dim rootFld As Outlook.Folder
     Dim basePath As String
@@ -115,9 +113,9 @@ EH:
     LogLine "ERROR in WalkFolder [" & FullFolderPath(fld) & "]: " & Err.Number & " - " & Err.Description
 End Sub
 
-' ---------------------------
+' ===========================
 ' EXPORT ITEMS
-' ---------------------------
+' ===========================
 Private Sub ExportFolderItems(ByVal fld As Outlook.Folder, ByVal targetPath As String, ByVal storeId As String)
     Dim itms As Outlook.Items
     Dim i As Long
@@ -128,7 +126,6 @@ Private Sub ExportFolderItems(ByVal fld As Outlook.Folder, ByVal targetPath As S
     Set itms = fld.Items
     On Error Resume Next
     itms.Sort "[ReceivedTime]", False
-    itms.IncludeRecurrences = True
     On Error GoTo EH
 
     For i = 1 To itms.Count
@@ -220,9 +217,9 @@ EH:
     LogLine "ERROR in ExportOneMail [" & filePath & "]: " & Err.Number & " - " & Err.Description
 End Sub
 
-' ---------------------------
+' ===========================
 ' CHECKPOINT CSV
-' ---------------------------
+' ===========================
 ' CSV columns: StoreID,FolderID,EntryID,LastModUTC,FilePath
 Private Function HasItemChangedSinceCheckpoint(ByVal storeId As String, ByVal folderId As String, _
                                                ByVal entryId As String, ByVal lastMod As Date, _
@@ -230,7 +227,6 @@ Private Function HasItemChangedSinceCheckpoint(ByVal storeId As String, ByVal fo
     Dim f As Integer
     Dim line As String
     Dim found As Boolean
-    Dim lastModStr As String
     Dim parts() As String
     Dim cpLast As String
 
@@ -243,7 +239,312 @@ Private Function HasItemChangedSinceCheckpoint(ByVal storeId As String, ByVal fo
     On Error GoTo EH
     Open CHECKPOINT_CSV For Input As #f
 
-    lastModStr = Format$(lastMod, "yyyy-mm-dd hh:nn:ss")
     found = False
-
     Do While Not EOF(f)
+        Line Input #f, line
+        If InStr(1, line, entryId, vbTextCompare) > 0 Then
+            parts = Split(line, ",")
+            If UBound(parts) >= 4 Then
+                cpLast = parts(3)
+                found = True
+                If Not FileExists(filePath) Then
+                    HasItemChangedSinceCheckpoint = True
+                Else
+                    ' Compare as doubles (safer than string compare)
+                    If CDbl(lastMod) > CDbl(CDate(cpLast)) Then
+                        HasItemChangedSinceCheckpoint = True
+                    Else
+                        HasItemChangedSinceCheckpoint = False
+                    End If
+                End If
+                Exit Do
+            End If
+        End If
+    Loop
+    Close #f
+
+    If Not found Then HasItemChangedSinceCheckpoint = True
+    Exit Function
+EH:
+    On Error Resume Next
+    Close #f
+    HasItemChangedSinceCheckpoint = True
+End Function
+
+Private Sub UpdateCheckpoint(ByVal storeId As String, ByVal folderId As String, _
+                             ByVal entryId As String, ByVal lastMod As Date, _
+                             ByVal filePath As String)
+    Dim f As Integer
+
+    On Error GoTo EH
+    f = FreeFile
+    EnsureFolderExists GetParentPath(CHECKPOINT_CSV)
+    Open CHECKPOINT_CSV For Append As #f
+    Print #f, storeId & "," & folderId & "," & entryId & "," & _
+              Format$(lastMod, "yyyy-mm-dd hh:nn:ss") & ",""" & filePath & """"
+    Close #f
+    Exit Sub
+EH:
+    On Error Resume Next
+    Close #f
+    LogLine "ERROR writing checkpoint: " & Err.Number & " - " & Err.Description
+End Sub
+
+' ===========================
+' HELPERS
+' ===========================
+Private Function IsExchangeArchiveStore(ByVal st As Outlook.Store) As Boolean
+    Dim est As Variant
+    On Error Resume Next
+    est = CallByName(st, "ExchangeStoreType", VbGet)
+    If Not IsError(est) Then
+        If est = 3 Then
+            IsExchangeArchiveStore = True
+            Exit Function
+        End If
+    End If
+    IsExchangeArchiveStore = (InStr(1, st.DisplayName, "archive", vbTextCompare) > 0)
+End Function
+
+Private Function ShouldExcludeFolder(ByVal name As String) As Boolean
+    Dim nm As String
+    Dim i As Long
+    nm = LCase$(Trim$(name))
+    For i = LBound(ExcludedFolders) To UBound(ExcludedFolders)
+        If nm = LCase$(ExcludedFolders(i)) Then
+            ShouldExcludeFolder = True
+            Exit Function
+        End If
+    Next i
+    ShouldExcludeFolder = False
+End Function
+
+Private Function FullFolderPath(ByVal fld As Outlook.Folder) As String
+    On Error Resume Next
+    FullFolderPath = fld.FolderPath
+End Function
+
+Private Function Nz(ByVal s As Variant, ByVal fallback As String) As String
+    If IsEmpty(s) Or IsNull(s) Then
+        Nz = fallback
+    Else
+        Nz = CStr(s)
+    End If
+End Function
+
+Private Function SafeGetInternetMessageId(ByVal pa As Outlook.PropertyAccessor) As String
+    Dim val As String
+    On Error Resume Next
+    val = pa.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x1035001E")
+    If Err.Number <> 0 Or val = "" Then
+        Err.Clear
+        val = pa.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x1035001F")
+    End If
+    If Err.Number <> 0 Then
+        val = ""
+        Err.Clear
+    End If
+    val = Replace$(val, "<", "")
+    val = Replace$(val, ">", "")
+    val = SanitizeFilePart(val)
+    SafeGetInternetMessageId = val
+End Function
+
+Private Function TruncForPath(ByVal s As String, ByVal maxLen As Long) As String
+    If Len(s) > maxLen Then
+        TruncForPath = Left$(s, maxLen)
+    Else
+        TruncForPath = s
+    End If
+End Function
+
+Private Function MakeSafeName(ByVal s As String) As String
+    s = SanitizeFilePart(s)
+    If Len(s) = 0 Then s = "_"
+    MakeSafeName = s
+End Function
+
+' Tightened sanitization
+Private Function SanitizeFilePart(ByVal s As String) As String
+    Dim i As Long, ch As String, outS As String
+    If Len(s) = 0 Then SanitizeFilePart = "": Exit Function
+
+    Dim bad As Variant
+    bad = Array("<", ">", ":", """", "/", "\", "|", "?", "*")
+    For i = LBound(bad) To UBound(bad)
+        s = Replace$(s, bad(i), " ")
+    Next i
+
+    outS = ""
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If AscW(ch) >= 32 Then outS = outS & ch
+    Next i
+
+    Do While InStr(outS, "  ") > 0
+        outS = Replace$(outS, "  ", " ")
+    Loop
+    Do While InStr(outS, "..") > 0
+        outS = Replace$(outS, "..", ".")
+    Loop
+
+    outS = Trim$(outS)
+    Do While Len(outS) > 0 And (Right$(outS, 1) = "." Or Right$(outS, 1) = " ")
+        outS = Left$(outS, Len(outS) - 1)
+    Loop
+
+    SanitizeFilePart = outS
+End Function
+
+Private Function MakeSafePath(ByVal s As String) As String
+    Dim parts() As String
+    Dim i As Long
+    parts = Split(s, "\")
+    For i = LBound(parts) To UBound(parts)
+        parts(i) = MakeSafeName(parts(i))
+    Next i
+    MakeSafePath = Join(parts, "\")
+End Function
+
+Private Sub EnsureFolderExists(ByVal path As String)
+    Dim fso As Object
+    On Error GoTo EH
+    If Len(path) = 0 Then Exit Sub
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FolderExists(path) Then
+        fso.CreateFolder path
+    End If
+    Exit Sub
+EH:
+    LogLine "ERROR creating folder [" & path & "]: " & Err.Number & " - " & Err.Description
+End Sub
+
+Private Function GetParentPath(ByVal filePath As String) As String
+    Dim i As Long
+    i = InStrRev(filePath, "\")
+    If i > 0 Then
+        GetParentPath = Left$(filePath, i - 1)
+    Else
+        GetParentPath = ""
+    End If
+End Function
+
+Private Function FileExists(ByVal filePath As String) As Boolean
+    Dim fso As Object
+    On Error Resume Next
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    FileExists = fso.FileExists(filePath)
+End Function
+
+' ---------------------------
+' Minimal targeted fix helpers
+' ---------------------------
+Private Function IsReservedWinName(ByVal s As String) As Boolean
+    Dim n As String
+    Dim dotPos As Long
+    n = UCase$(Trim$(s))
+    dotPos = InStrRev(n, ".")
+    If dotPos > 0 Then n = Left$(n, dotPos - 1)
+    Select Case n
+        Case "CON", "PRN", "AUX", "NUL", _
+             "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", _
+             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+            IsReservedWinName = True
+        Case Else
+            IsReservedWinName = False
+    End Select
+End Function
+
+Private Function SimpleHash8(ByVal s As String) As String
+    Dim i As Long, h As Long
+    h = &H1505&
+    For i = 1 To Len(s)
+        h = ((h * 33) Xor AscW(Mid$(s, i, 1))) And &H7FFFFFFF
+    Next i
+    SimpleHash8 = Right$("00000000" & Hex$(h), 8)
+End Function
+
+Private Function BuildSafeFilePath( _
+        ByVal folderPath As String, _
+        ByVal baseName As String, _
+        ByVal entryId As String) As String
+
+    Dim namePart As String
+    Dim fullPath As String
+    Dim ts As String, pos As Long, rest As String
+    Dim shortCore As String
+    Dim newName As String
+
+    namePart = MakeSafeName(baseName)
+
+    If IsReservedWinName(namePart) Then namePart = namePart & "_"
+    If Len(namePart) > MAX_FILENAME Then
+        namePart = Left$(namePart, MAX_FILENAME)
+        Do While Len(namePart) > 0 And (Right$(namePart, 1) = "." Or Right$(namePart, 1) = " ")
+            namePart = Left$(namePart, Len(namePart) - 1)
+        Loop
+    End If
+
+    fullPath = MakeSafePath(folderPath) & "\" & namePart & ".msg"
+    If Len(fullPath) <= MAX_FULLPATH Then
+        BuildSafeFilePath = fullPath
+        Exit Function
+    End If
+
+    ' Too long: preserve timestamp prefix and replace rest with EntryID hash
+    pos = InStr(1, namePart, "__")
+    If pos > 0 Then
+        ts = Left$(namePart, pos - 1)
+        rest = Mid$(namePart, pos + 2)
+    Else
+        ts = ""
+        rest = namePart
+    End If
+
+    shortCore = "MID-" & SimpleHash8(entryId)
+
+    If ts <> "" Then
+        newName = ts & "__" & shortCore
+    Else
+        newName = shortCore
+    End If
+
+    fullPath = MakeSafePath(folderPath) & "\" & newName & ".msg"
+
+    If Len(fullPath) > MAX_FULLPATH Then
+        newName = Left$(newName, MAX_FILENAME \ 2) & "_" & SimpleHash8(entryId)
+        fullPath = MakeSafePath(folderPath) & "\" & newName & ".msg"
+    End If
+
+    If IsReservedWinName(newName) Then newName = newName & "_"
+    Do While Len(newName) > 0 And (Right$(newName, 1) = "." Or Right$(newName, 1) = " ")
+        newName = Left$(newName, Len(newName) - 1)
+    Loop
+
+    BuildSafeFilePath = MakeSafePath(folderPath) & "\" & newName & ".msg"
+End Function
+
+' ===========================
+' LOGGING
+' ===========================
+Private Sub InitLog()
+    Dim f As Integer
+    On Error GoTo EH
+    EnsureFolderExists GetParentPath(LOG_PATH)
+    f = FreeFile
+    Open LOG_PATH For Append As #f
+    Print #f, ""
+    Close #f
+    Exit Sub
+EH:
+    ' swallow
+End Sub
+
+Private Sub LogLine(ByVal s As String)
+    Dim f As Integer
+    On Error Resume Next
+    f = FreeFile
+    Open LOG_PATH For Append As #f
+    Print #f, Format$(Now, "yyyy-mm-dd hh:nn:ss"); " | "; s
+    Close #f
+End Sub
