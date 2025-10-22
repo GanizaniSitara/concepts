@@ -97,6 +97,7 @@ End Sub
 Private Sub WalkFolder(ByVal fld As Object, ByVal currentPath As String, ByVal storeId As String)
     Dim thisPath As String
     Dim sf As Object
+    Dim safeFolderName As String
 
     On Error GoTo EH
 
@@ -105,7 +106,14 @@ Private Sub WalkFolder(ByVal fld As Object, ByVal currentPath As String, ByVal s
         Exit Sub
     End If
 
-    thisPath = MakeSafePath(currentPath & "\" & MakeSafeName(fld.Name))
+    ' Create safe folder name and log the transformation
+    safeFolderName = MakeSafeName(fld.Name)
+    If safeFolderName <> fld.Name Then
+        LogLine "Folder name sanitized: [" & fld.Name & "] -> [" & safeFolderName & "]"
+    End If
+
+    thisPath = MakeSafePath(currentPath & "\" & safeFolderName)
+    LogLine "Creating folder path: " & thisPath
     EnsureFolderExists thisPath
 
     ExportFolderItems fld, thisPath, storeId
@@ -370,27 +378,43 @@ End Function
 
 Private Function MakeSafeName(ByVal s As String) As String
     s = SanitizeFilePart(s)
-    If Len(s) = 0 Then s = "_"
+    ' If we end up with an empty string or just underscores/spaces, use a default name
+    If Len(Trim$(Replace$(s, "_", ""))) = 0 Then
+        s = "folder_" & Format$(Now, "yyyymmdd_hhnnss")
+    End If
     MakeSafeName = s
 End Function
 
 ' Tightened sanitization
 Private Function SanitizeFilePart(ByVal s As String) As String
     Dim i As Long, ch As String, outS As String
+    Dim charCode As Long
     If Len(s) = 0 Then SanitizeFilePart = "": Exit Function
 
     Dim bad As Variant
     bad = Array("<", ">", ":", """", "/", "\", "|", "?", "*")
     For i = LBound(bad) To UBound(bad)
-        s = Replace$(s, bad(i), " ")
+        s = Replace$(s, bad(i), "_")
     Next i
 
     outS = ""
     For i = 1 To Len(s)
         ch = Mid$(s, i, 1)
-        If AscW(ch) >= 32 Then outS = outS & ch
+        charCode = AscW(ch)
+        ' Keep printable ASCII and common extended characters
+        If (charCode >= 32 And charCode <= 126) Or _
+           (charCode >= 160 And charCode <= 255) Then
+            outS = outS & ch
+        ElseIf charCode > 255 Then
+            ' Replace non-Latin unicode with underscore
+            outS = outS & "_"
+        End If
     Next i
 
+    ' Clean up multiple underscores and spaces
+    Do While InStr(outS, "__") > 0
+        outS = Replace$(outS, "__", "_")
+    Loop
     Do While InStr(outS, "  ") > 0
         outS = Replace$(outS, "  ", " ")
     Loop
@@ -399,6 +423,7 @@ Private Function SanitizeFilePart(ByVal s As String) As String
     Loop
 
     outS = Trim$(outS)
+    ' Remove trailing dots and spaces
     Do While Len(outS) > 0 And (Right$(outS, 1) = "." Or Right$(outS, 1) = " ")
         outS = Left$(outS, Len(outS) - 1)
     Loop
@@ -418,9 +443,26 @@ End Function
 
 Private Sub EnsureFolderExists(ByVal path As String)
     Dim fso As Object
+    Dim parentPath As String
+
     On Error GoTo EH
     If Len(path) = 0 Then Exit Sub
+
     Set fso = CreateObject("Scripting.FileSystemObject")
+
+    ' If folder already exists, we're done
+    If fso.FolderExists(path) Then Exit Sub
+
+    ' Get parent folder
+    parentPath = fso.GetParentFolderName(path)
+
+    ' Recursively ensure parent exists (unless we're at root)
+    If Len(parentPath) > 0 And parentPath <> path Then
+        EnsureFolderExists parentPath
+    End If
+
+    ' Now create this folder
+    On Error GoTo EH
     If Not fso.FolderExists(path) Then
         fso.CreateFolder path
     End If
