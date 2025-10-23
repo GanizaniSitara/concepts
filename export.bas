@@ -85,7 +85,7 @@ Private Sub ProcessStore(ByVal st As Object)
     On Error GoTo EH
 
     Set rootFld = st.GetRootFolder
-    basePath = MakeSafePath(ROOT_EXPORT & "\" & MakeSafeName(st.DisplayName))
+    basePath = ROOT_EXPORT & "\" & MakeSafeName(st.DisplayName)
     EnsureFolderExists basePath
 
     WalkFolder rootFld, basePath, st.StoreID
@@ -112,7 +112,7 @@ Private Sub WalkFolder(ByVal fld As Object, ByVal currentPath As String, ByVal s
         LogLine "Folder name sanitized: [" & fld.Name & "] -> [" & safeFolderName & "]"
     End If
 
-    thisPath = MakeSafePath(currentPath & "\" & safeFolderName)
+    thisPath = currentPath & "\" & safeFolderName
     LogLine "Creating folder path: " & thisPath
     EnsureFolderExists thisPath
 
@@ -434,10 +434,29 @@ End Function
 Private Function MakeSafePath(ByVal s As String) As String
     Dim parts() As String
     Dim i As Long
+    Dim startIdx As Long
+
     parts = Split(s, "\")
-    For i = LBound(parts) To UBound(parts)
-        parts(i) = MakeSafeName(parts(i))
+
+    ' Don't sanitize the drive letter (e.g., "D:" or "C:")
+    startIdx = LBound(parts)
+    If UBound(parts) >= LBound(parts) Then
+        ' Check if first part is a drive letter (e.g., "D:")
+        If Len(parts(startIdx)) = 2 And Right$(parts(startIdx), 1) = ":" Then
+            startIdx = startIdx + 1  ' Skip drive letter
+        ElseIf Len(parts(startIdx)) = 0 And UBound(parts) > LBound(parts) Then
+            ' UNC path starting with \\
+            startIdx = startIdx + 2  ' Skip first two empty parts for UNC
+        End If
+    End If
+
+    ' Only sanitize folder names, not the drive/root
+    For i = startIdx To UBound(parts)
+        If Len(parts(i)) > 0 Then
+            parts(i) = MakeSafeName(parts(i))
+        End If
     Next i
+
     MakeSafePath = Join(parts, "\")
 End Function
 
@@ -536,7 +555,7 @@ Private Function BuildSafeFilePath(ByVal folderPath As String, _
         Loop
     End If
 
-    fullPath = MakeSafePath(folderPath) & "\" & namePart & ".msg"
+    fullPath = folderPath & "\" & namePart & ".msg"
     If Len(fullPath) <= MAX_FULLPATH Then
         BuildSafeFilePath = fullPath
         Exit Function
@@ -560,11 +579,11 @@ Private Function BuildSafeFilePath(ByVal folderPath As String, _
         newName = shortCore
     End If
 
-    fullPath = MakeSafePath(folderPath) & "\" & newName & ".msg"
+    fullPath = folderPath & "\" & newName & ".msg"
 
     If Len(fullPath) > MAX_FULLPATH Then
         newName = Left$(newName, MAX_FILENAME \ 2) & "_" & SimpleHash8(entryId)
-        fullPath = MakeSafePath(folderPath) & "\" & newName & ".msg"
+        fullPath = folderPath & "\" & newName & ".msg"
     End If
 
     If IsReservedWinName(newName) Then newName = newName & "_"
@@ -572,7 +591,7 @@ Private Function BuildSafeFilePath(ByVal folderPath As String, _
         newName = Left$(newName, Len(newName) - 1)
     Loop
 
-    BuildSafeFilePath = MakeSafePath(folderPath) & "\" & newName & ".msg"
+    BuildSafeFilePath = folderPath & "\" & newName & ".msg"
 End Function
 
 ' ===========================
