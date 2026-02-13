@@ -1,0 +1,14 @@
+:root{
+  --ux-navy:#022D5E;
+  --ux-blue:#005587;
+  --ux-olive:#789D4A;
+  --ux-teal:#00897B;
+
+  --color-bg:#FFFFFF;
+  --color-text:#000000;
+
+  --color-primary:var(--ux-navy);
+  --color-accent:var(--ux-blue);
+  --color-secondary:var(--ux-olive);
+  --color-action-alt:var(--ux-teal);
+}

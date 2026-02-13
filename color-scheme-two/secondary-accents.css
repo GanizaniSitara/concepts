@@ -1,0 +1,30 @@
+:root{
+  --color-bg:#FFFFFF;
+  --color-surface:#FFFFFF;
+  --color-text:#000000;
+
+  --c-ppt-white:#E1E1E1;
+  --c-gray:#53565A;
+  --c-wine:#621244;
+
+  --c-cerulean:#008BCD;
+  --c-denim:#36749D;
+  --c-aqua:#00BFB3;
+  --c-plum:#80276C;
+  --c-forest:#215D25;
+  --c-glacier:#6BA4B8;
+
+  --c-red:#D0002B;
+  --c-yellow:#FFD100;
+  --c-green:#009639;
+
+  --color-muted:var(--c-gray);
+  --color-info:var(--c-cerulean);
+  --color-utility:var(--c-denim);
+  --color-emphasis:var(--c-aqua);
+  --color-alt:var(--c-plum);
+
+  --color-success-2:var(--c-green);
+  --color-warning-2:var(--c-yellow);
+  --color-danger-2:var(--c-red);
+}

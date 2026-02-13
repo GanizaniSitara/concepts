@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Corporate Lite Theme – Example</title>
+
+  <!-- 1) Tokens -->
+  <link rel="stylesheet" href="./corporate-lite-tokens.css" />
+  <!-- 2) Base styles -->
+  <link rel="stylesheet" href="./corporate-lite-base.css" />
+</head>
+<body>
+  <main style="max-width: 960px; margin: 32px auto; padding: 0 16px;">
+    <h1>Example page heading</h1>
+    <p class="subheading">Subheading in muted gray</p>
+
+    <div class="card stack">
+      <p>This is body text. <a href="#">This is a link</a>.</p>
+
+      <div class="row">
+        <button>Primary button</button>
+        <button class="btn-secondary">Secondary</button>
+        <span class="pill pill-success">SUCCESS</span>
+        <span class="pill pill-warning">WARNING</span>
+        <span class="pill pill-danger">DANGER</span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row" style="align-items:flex-start;">
+        <div style="flex:1; min-width: 260px;">
+          <label for="q">Search</label>
+          <input id="q" placeholder="Type here…" />
+        </div>
+        <div style="flex:1; min-width: 260px;">
+          <label for="opt">Dropdown</label>
+          <select id="opt">
+            <option>Option A</option>
+            <option>Option B</option>
+          </select>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Status</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Item 1</td><td><span class="pill pill-success">OK</span></td><td>123</td></tr>
+          <tr><td>Item 2</td><td><span class="pill pill-warning">Review</span></td><td>456</td></tr>
+          <tr><td>Item 3</td><td><span class="pill pill-danger">Blocked</span></td><td>789</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>
