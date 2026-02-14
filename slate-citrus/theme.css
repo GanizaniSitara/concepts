@@ -1,0 +1,11 @@
+/* theme.css
+   Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action.
+*/
+:root {
+  --color-bg: #FFFFFF;
+  --color-text: #000000;
+  --color-primary: #455A64;
+  --color-accent: #0097A7;
+  --color-secondary: #F57C00;
+  --color-action-alt: #FFA000;
+}
