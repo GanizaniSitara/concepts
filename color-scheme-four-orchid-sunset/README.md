@@ -1,4 +1,4 @@
-# orchid-sunset (light scheme)
+# color-scheme-four-orchid-sunset (light scheme)
 
 Deep Purple primary with Pink accent, Amber secondary, Cyan alt-action.
 
@@ -31,4 +31,4 @@ Link this theme after your base CSS:
 | `--color-action-alt` | `#0097A7` | ![](https://img.shields.io/badge/-%230097A7-0097A7?style=flat-square) |
 
 ## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/orchid-sunset/demo.html
+- https://ganizanisitara.github.io/concepts/color-scheme-four-orchid-sunset/demo.html
