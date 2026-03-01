@@ -1,4 +1,4 @@
-# color-scheme-two-moss-tidal (light scheme)
+# color-scheme-2-moss-tidal (light scheme)
 
 Files:
 - moss-tidal-base.css : the 4 core UI colors (navy/blue/olive/teal) + white bg + black text
@@ -21,4 +21,4 @@ Use order:
 | `--ux-teal` | `#00897B` | ![](https://img.shields.io/badge/-%2300897B-00897B?style=flat-square) |
 
 ## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/color-scheme-two-moss-tidal/demo.html
+- https://ganizanisitara.github.io/concepts/color-scheme-2-moss-tidal/demo.html
