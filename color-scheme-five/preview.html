@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Color Scheme Five — Dark Portal Theme</title>
+  <style>
+    :root {
+      --color-bg-deep: #1A223F;
+      --color-bg-surface: #293150;
+      --color-bg-elevated: #334168;
+      --color-text-primary: #F0F2F8;
+      --color-text-secondary: #BDC8F0;
+      --color-text-muted: #8892B0;
+      --color-accent: #2196F3;
+      --color-accent-muted: rgba(33, 150, 243, 0.2);
+      --color-positive: #66BB6A;
+      --color-negative: #EF5350;
+      --color-warning: #FFA726;
+      --color-border: rgba(189, 200, 240, 0.12);
+      --color-border-strong: rgba(189, 200, 240, 0.25);
+      --color-chart-1: #2196F3;
+      --color-chart-2: #00BFA5;
+      --color-chart-3: #FF9800;
+      --color-chart-4: #AB47BC;
+      --color-chart-5: #FFEE58;
+      --color-chart-6: #EF5350;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--color-bg-deep);
+      color: var(--color-text-primary);
+      line-height: 1.45;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    h1, h2, h3 { margin: 0 0 8px; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 16px; color: var(--color-text-secondary); }
+    p { margin: 0 0 8px; color: var(--color-text-secondary); }
+
+    .nested-bg {
+      background: var(--color-bg-deep);
+      border: 1px solid var(--color-border-strong);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .nested-surface {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .nested-elevated {
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border-strong);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .text-samples {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .swatch {
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .muted { color: var(--color-text-muted); }
+
+    .chart-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      margin-right: 8px;
+      margin-bottom: 8px;
+      background: var(--color-bg-elevated);
+    }
+
+    .card {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .kpi {
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border-strong);
+      border-radius: 10px;
+      padding: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--color-accent);
+    }
+
+    .delta-up { color: var(--color-positive); font-weight: 700; }
+    .delta-down { color: var(--color-negative); font-weight: 700; }
+
+    .accent-box {
+      background: var(--color-accent-muted);
+      border: 1px solid rgba(33, 150, 243, 0.35);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--color-text-primary);
+      display: inline-block;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="panel">
+      <h1>Color Scheme Five — Dark Portal Theme</h1>
+      <p class="muted">Purple/deep blue direction for analytics and financial dashboards.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Background tiers (deep → surface → elevated)</h2>
+      <div class="nested-bg">
+        <div class="nested-surface">
+          <div class="nested-elevated">
+            Elevated layer sample
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Text samples on each background</h2>
+      <div class="text-samples">
+        <div class="swatch" style="background: var(--color-bg-deep);">
+          <div style="color: var(--color-text-primary);">Primary text on deep</div>
+          <div style="color: var(--color-text-secondary);">Secondary text on deep</div>
+          <div style="color: var(--color-text-muted);">Muted text on deep</div>
+        </div>
+        <div class="swatch" style="background: var(--color-bg-surface);">
+          <div style="color: var(--color-text-primary);">Primary text on surface</div>
+          <div style="color: var(--color-text-secondary);">Secondary text on surface</div>
+          <div style="color: var(--color-text-muted);">Muted text on surface</div>
+        </div>
+        <div class="swatch" style="background: var(--color-bg-elevated);">
+          <div style="color: var(--color-text-primary);">Primary text on elevated</div>
+          <div style="color: var(--color-text-secondary);">Secondary text on elevated</div>
+          <div style="color: var(--color-text-muted);">Muted text on elevated</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Chart series</h2>
+      <div class="chart-row">
+        <div class="dot" style="background: var(--color-chart-1);"></div>
+        <div class="dot" style="background: var(--color-chart-2);"></div>
+        <div class="dot" style="background: var(--color-chart-3);"></div>
+        <div class="dot" style="background: var(--color-chart-4);"></div>
+        <div class="dot" style="background: var(--color-chart-5);"></div>
+        <div class="dot" style="background: var(--color-chart-6);"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Status indicators</h2>
+      <span class="status"><span style="color: var(--color-positive);">●</span> Positive</span>
+      <span class="status"><span style="color: var(--color-negative);">●</span> Negative</span>
+      <span class="status"><span style="color: var(--color-warning);">●</span> Warning</span>
+    </section>
+
+    <section class="panel">
+      <h2>Mock card</h2>
+      <div class="card">
+        <div class="row">
+          <h3 style="margin: 0;">Market Overview</h3>
+          <span class="muted">Updated 14:32 UTC</span>
+        </div>
+        <p>Surface layer with subtle border and hierarchical text.</p>
+        <div class="accent-box">Focused filter: Tech / Large Cap</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Mock KPI card</h2>
+      <div class="kpi">
+        <div class="muted">Portfolio Net Exposure</div>
+        <div class="kpi-value">$12.8M</div>
+        <div class="row">
+          <span class="delta-up">▲ +2.4%</span>
+          <span class="delta-down">▼ -0.8%</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
