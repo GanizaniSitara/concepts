@@ -1,0 +1,32 @@
+:root {
+  /* Backgrounds */
+  --color-bg-deep: #1A223F;          /* rgb(26, 34, 63) — page background */
+  --color-bg-surface: #293150;       /* rgb(41, 49, 79) — cards, panels */
+  --color-bg-elevated: #334168;      /* hover states, dropdowns */
+  
+  /* Text */
+  --color-text-primary: #F0F2F8;     /* headings, primary content */
+  --color-text-secondary: #BDC8F0;   /* rgb(189, 200, 240) — labels, axis text */
+  --color-text-muted: #8892B0;       /* timestamps, metadata */
+  
+  /* Accent */
+  --color-accent: #2196F3;           /* rgb(33, 150, 243) — links, primary actions */
+  --color-accent-muted: rgba(33, 150, 243, 0.2);  /* selections, hover bg */
+  
+  /* Status */
+  --color-positive: #66BB6A;         /* gains, up indicators */
+  --color-negative: #EF5350;         /* losses, down indicators */
+  --color-warning: #FFA726;          /* alerts, caution */
+  
+  /* Borders */
+  --color-border: rgba(189, 200, 240, 0.12);
+  --color-border-strong: rgba(189, 200, 240, 0.25);
+  
+  /* Chart series (ordered for visual distinction) */
+  --color-chart-1: #2196F3;          /* blue */
+  --color-chart-2: #00BFA5;          /* teal */
+  --color-chart-3: #FF9800;          /* amber */
+  --color-chart-4: #AB47BC;          /* purple */
+  --color-chart-5: #FFEE58;          /* yellow */
+  --color-chart-6: #EF5350;          /* red */
+}
