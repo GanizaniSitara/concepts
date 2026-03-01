@@ -20,5 +20,5 @@ Use order:
 | `--ux-olive` | `#789D4A` | ![](https://img.shields.io/badge/-%23789D4A-789D4A?style=flat-square) |
 | `--ux-teal` | `#00897B` | ![](https://img.shields.io/badge/-%2300897B-00897B?style=flat-square) |
 
-## Live demo (GitHub Pages)
+## Live demo
 - ./demo.html
