@@ -11,3 +11,8 @@ semantic tokens for charts, status indicators, and data tables.
 CSS: import `tokens.css` and use custom properties.
 Python/JS: import `tokens.json` for programmatic access.
 Preview: open `preview.html` in a browser.
+
+## Live preview (GitHub Pages)
+- Full preview: https://ganizanisitara.github.io/concepts/color-scheme-5-nebula-spark/preview.html
+- Sample card: https://ganizanisitara.github.io/concepts/color-scheme-5-nebula-spark/preview.html#sample-card
+- Sample KPI card: https://ganizanisitara.github.io/concepts/color-scheme-5-nebula-spark/preview.html#sample-kpi-card
