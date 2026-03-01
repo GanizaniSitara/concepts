@@ -31,4 +31,4 @@ Link this theme after your base CSS:
 | `--color-action-alt` | `#0097A7` | ![](https://img.shields.io/badge/-%230097A7-0097A7?style=flat-square) |
 
 ## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/color-scheme-4-orchid-sunset/demo.html
+- ./demo.html
