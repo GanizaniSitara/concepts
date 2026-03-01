@@ -51,5 +51,5 @@ Example:
 | `--color-warning` | `#FFD100` | ![](https://img.shields.io/badge/-%23FFD100-FFD100?style=flat-square) |
 | `--color-danger` | `#D0002B` | ![](https://img.shields.io/badge/-%23D0002B-D0002B?style=flat-square) |
 
-## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/color-scheme-1-sapphire-dusk/example.html
+## Live demo
+- ./example.html

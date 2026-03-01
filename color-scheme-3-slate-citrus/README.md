@@ -30,5 +30,5 @@ Link this theme after your base CSS:
 | `--color-secondary` | `#F57C00` | ![](https://img.shields.io/badge/-%23F57C00-F57C00?style=flat-square) |
 | `--color-action-alt` | `#FFA000` | ![](https://img.shields.io/badge/-%23FFA000-FFA000?style=flat-square) |
 
-## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/color-scheme-3-slate-citrus/demo.html
+## Live demo
+- ./demo.html

@@ -13,6 +13,6 @@ Python/JS: import `tokens.json` for programmatic access.
 Preview: open `preview.html` in a browser.
 
 ## Live preview (GitHub Pages)
-- Full preview: https://ganizanisitara.github.io/concepts/color-scheme-5-nebula-spark/preview.html
-- Sample card: https://ganizanisitara.github.io/concepts/color-scheme-5-nebula-spark/preview.html#sample-card
-- Sample KPI card: https://ganizanisitara.github.io/concepts/color-scheme-5-nebula-spark/preview.html#sample-kpi-card
+- Full preview: ./preview.html
+- Sample card: ./preview.html#sample-card
+- Sample KPI card: ./preview.html#sample-kpi-card
