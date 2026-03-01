@@ -6,8 +6,8 @@ Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action.
 Link this theme after your base CSS:
 
 ```html
-<link rel="stylesheet" href=".../corporate-lite-tokens.css">
-<link rel="stylesheet" href=".../corporate-lite-base.css">
+<link rel="stylesheet" href=".../sapphire-dusk-tokens.css">
+<link rel="stylesheet" href=".../sapphire-dusk-base.css">
 <link rel="stylesheet" href="theme.css">
 ```
 

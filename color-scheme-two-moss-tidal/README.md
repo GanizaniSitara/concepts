@@ -1,14 +1,14 @@
-# Secondary Styling Zip (Moniker 4-color base + PPT secondary accents)
+# color-scheme-two-moss-tidal (light scheme)
 
 Files:
-- moniker-base-4color.css : the 4 core UI colors (navy/blue/olive/teal) + white bg + black text
+- moss-tidal-base.css : the 4 core UI colors (navy/blue/olive/teal) + white bg + black text
 - secondary-accents.css   : all remaining PPT palette colors (everything except those 4)
 - base.css                : tiny demo styling
 - demo.html               : opens locally and shows swatches + example buttons
 - secondary-colors.json   : machine-readable secondary palette
 
 Use order:
-<link rel="stylesheet" href="moniker-base-4color.css">
+<link rel="stylesheet" href="moss-tidal-base.css">
 <link rel="stylesheet" href="secondary-accents.css">
 
 ## Rendered core colours
@@ -21,4 +21,4 @@ Use order:
 | `--ux-teal` | `#00897B` | ![](https://img.shields.io/badge/-%2300897B-00897B?style=flat-square) |
 
 ## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/color-scheme-two/demo.html
+- https://ganizanisitara.github.io/concepts/color-scheme-two-moss-tidal/demo.html

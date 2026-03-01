@@ -1,24 +1,24 @@
-# Corporate Lite Theme (neutral, CSS-only)
+# color-scheme-one-sapphire-dusk (light scheme)
 
 A tiny, framework-agnostic theme you can **link from any HTML** (plain pages, Flask/FastAPI templates, React, etc.).
 It’s intentionally *simple*:
 
-- `corporate-lite-tokens.css` → design tokens (CSS variables)
-- `corporate-lite-base.css` → minimal base styles (typography, buttons, inputs, cards)
+- `sapphire-dusk-tokens.css` → design tokens (CSS variables)
+- `sapphire-dusk-base.css` → minimal base styles (typography, buttons, inputs, cards)
 - `tokens.json` → same tokens in JSON (optional)
 - `example.html` → quick preview
 
 ## Use (local)
 ```html
-<link rel="stylesheet" href="corporate-lite-tokens.css">
-<link rel="stylesheet" href="corporate-lite-base.css">
+<link rel="stylesheet" href="sapphire-dusk-tokens.css">
+<link rel="stylesheet" href="sapphire-dusk-base.css">
 ```
 
 ## Use (hosted)
 Host these files on a static host (e.g., GitHub Pages) and link them via URL:
 ```html
-<link rel="stylesheet" href="https://YOUR_HOST/path/corporate-lite-tokens.css">
-<link rel="stylesheet" href="https://YOUR_HOST/path/corporate-lite-base.css">
+<link rel="stylesheet" href="https://YOUR_HOST/path/sapphire-dusk-tokens.css">
+<link rel="stylesheet" href="https://YOUR_HOST/path/sapphire-dusk-base.css">
 ```
 
 ## Semantic variables you should use in apps
@@ -52,4 +52,4 @@ Example:
 | `--color-danger` | `#D0002B` | ![](https://img.shields.io/badge/-%23D0002B-D0002B?style=flat-square) |
 
 ## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/color-scheme-one/example.html
+- https://ganizanisitara.github.io/concepts/color-scheme-one-sapphire-dusk/example.html
