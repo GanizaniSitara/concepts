@@ -20,3 +20,15 @@ Link this theme after your base CSS:
   "--color-secondary": "#FFA000",
   "--color-action-alt": "#0097A7"
 }
+
+## Rendered colours
+
+| Token | Hex | Preview |
+|---|---|---|
+| `--color-primary` | `#512DA8` | ![](https://img.shields.io/badge/-%23512DA8-512DA8?style=flat-square) |
+| `--color-accent` | `#F50057` | ![](https://img.shields.io/badge/-%23F50057-F50057?style=flat-square) |
+| `--color-secondary` | `#FFA000` | ![](https://img.shields.io/badge/-%23FFA000-FFA000?style=flat-square) |
+| `--color-action-alt` | `#0097A7` | ![](https://img.shields.io/badge/-%230097A7-0097A7?style=flat-square) |
+
+## Live demo (GitHub Pages)
+- https://ganizanisitara.github.io/concepts/orchid-sunset/demo.html
