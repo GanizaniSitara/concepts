@@ -1,4 +1,4 @@
-# color-scheme-one-sapphire-dusk (light scheme)
+# color-scheme-1-sapphire-dusk (light scheme)
 
 A tiny, framework-agnostic theme you can **link from any HTML** (plain pages, Flask/FastAPI templates, React, etc.).
 It’s intentionally *simple*:
@@ -52,4 +52,4 @@ Example:
 | `--color-danger` | `#D0002B` | ![](https://img.shields.io/badge/-%23D0002B-D0002B?style=flat-square) |
 
 ## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/color-scheme-one-sapphire-dusk/example.html
+- https://ganizanisitara.github.io/concepts/color-scheme-1-sapphire-dusk/example.html

@@ -1,4 +1,4 @@
-# color-scheme-three-slate-citrus (light scheme)
+# color-scheme-3-slate-citrus (light scheme)
 
 Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action.
 
@@ -31,4 +31,4 @@ Link this theme after your base CSS:
 | `--color-action-alt` | `#FFA000` | ![](https://img.shields.io/badge/-%23FFA000-FFA000?style=flat-square) |
 
 ## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/color-scheme-three-slate-citrus/demo.html
+- https://ganizanisitara.github.io/concepts/color-scheme-3-slate-citrus/demo.html

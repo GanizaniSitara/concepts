@@ -1,4 +1,4 @@
-# color-scheme-five-nebula-spark (dark scheme)
+# color-scheme-5-nebula-spark (dark scheme)
 
 Dark theme derived from the firm's purple/deep blue direction. 
 Designed for data-dense financial dashboards and analytics portals.
