@@ -1,4 +1,4 @@
-# slate-citrus (light scheme)
+# color-scheme-three-slate-citrus (light scheme)
 
 Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action.
 
@@ -6,8 +6,8 @@ Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action.
 Link this theme after your base CSS:
 
 ```html
-<link rel="stylesheet" href=".../corporate-lite-tokens.css">
-<link rel="stylesheet" href=".../corporate-lite-base.css">
+<link rel="stylesheet" href=".../sapphire-dusk-tokens.css">
+<link rel="stylesheet" href=".../sapphire-dusk-base.css">
 <link rel="stylesheet" href="theme.css">
 ```
 
@@ -31,4 +31,4 @@ Link this theme after your base CSS:
 | `--color-action-alt` | `#FFA000` | ![](https://img.shields.io/badge/-%23FFA000-FFA000?style=flat-square) |
 
 ## Live demo (GitHub Pages)
-- https://ganizanisitara.github.io/concepts/slate-citrus/demo.html
+- https://ganizanisitara.github.io/concepts/color-scheme-three-slate-citrus/demo.html
