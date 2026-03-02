@@ -40,7 +40,7 @@ jobs:
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             if [ "$status" = "404" ]; then
-              echo "::warning::GitHub Pages site is not enabled yet (HTTP 404). Enable Pages in repository settings, then re-run this workflow."
+              echo "::warning::GitHub Pages is not enabled yet (HTTP 404). One-time setup: Settings > Pages > Build and deployment > Source = GitHub Actions (no branch selection needed), then re-run this workflow."
             elif [ "$status" = "403" ]; then
               echo "::warning::GitHub token cannot access Pages site (HTTP 403). Check workflow permissions and repository Actions settings."
             else
