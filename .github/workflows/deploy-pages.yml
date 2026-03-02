@@ -25,10 +25,28 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Check Pages site access
+        id: pages_site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status="$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages")"
+          if [ "$status" = "200" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::GitHub Pages site is not accessible (HTTP $status)." \
+              "Enable Pages in repository settings, then re-run this workflow."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload artifact
+        if: steps.pages_site.outputs.available == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
       - name: Deploy to GitHub Pages
+        if: steps.pages_site.outputs.available == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
