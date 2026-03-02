@@ -37,8 +37,13 @@ jobs:
           if [ "$status" = "200" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::GitHub Pages site is not accessible (HTTP $status)." \
-              "Enable Pages in repository settings, then re-run this workflow."
+            if [ "$status" = "404" ]; then
+              echo "::warning::GitHub Pages site is not enabled yet (HTTP 404). Enable Pages in repository settings, then re-run this workflow."
+            elif [ "$status" = "403" ]; then
+              echo "::warning::GitHub token cannot access Pages site (HTTP 403). Check workflow permissions and repository Actions settings."
+            else
+              echo "::warning::GitHub Pages site is not accessible (HTTP $status)."
+            fi
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Upload artifact
