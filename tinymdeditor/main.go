@@ -97,9 +97,14 @@ func main() {
 		}
 	}
 
+	// Use a fixed data path so WebView2 reuses its cached browser profile
+	// instead of recreating it every launch (~1s saving on cold start).
+	dataPath := filepath.Join(os.Getenv("LOCALAPPDATA"), "TinyMD", "webview2")
+
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
 		Debug:     false,
 		AutoFocus: true,
+		DataPath:  dataPath,
 		WindowOptions: webview2.WindowOptions{
 			Title:  windowTitle(),
 			Width:  1400,
@@ -135,7 +140,7 @@ func main() {
 		return filepath.Base(path)
 	})
 
-	w.Navigate("data:text/html," + dataURI(htmlPage(initialContent, currentFile)))
+	w.SetHtml(htmlPage(initialContent, currentFile))
 	w.Run()
 }
 
@@ -144,27 +149,6 @@ func windowTitle() string {
 		return "TinyMD — " + currentFile
 	}
 	return "TinyMD Editor"
-}
-
-func dataURI(html string) string {
-	// Minimal percent-encoding for data URI
-	r := strings.NewReplacer(
-		"%", "%25",
-		" ", "%20",
-		"#", "%23",
-		"<", "%3C",
-		">", "%3E",
-		"\"", "%22",
-		"{", "%7B",
-		"}", "%7D",
-		"|", "%7C",
-		"^", "%5E",
-		"`", "%60",
-		"\n", "%0A",
-		"\r", "%0D",
-		"\t", "%09",
-	)
-	return r.Replace(html)
 }
 
 func jsEscape(s string) string {
