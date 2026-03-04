@@ -174,18 +174,24 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 .container { display:flex; height:calc(100% - 36px); }
 
 .editor-pane {
-  width:50%; height:100%; display:flex; flex-direction:column;
-  border-right: 2px solid #e0e0e0;
+  flex:1 1 50%; height:100%; display:flex; flex-direction:column;
+  overflow:hidden;
 }
 .editor-pane textarea {
-  flex:1; width:100%; resize:none; border:none; outline:none;
+  flex:1; min-width:50vw; resize:none; border:none; outline:none;
   background:#fff; color:#222; padding:16px; font-size:14px;
   font-family: 'Cascadia Code','Consolas','Courier New', monospace;
   line-height:1.6; tab-size:4;
 }
 
+.divider {
+  width:6px; flex-shrink:0; cursor:col-resize;
+  background:#e0e0e0; transition:background 0.15s;
+}
+.divider:hover, .divider.active { background:#0366d6; }
+
 .preview-pane {
-  width:50%; height:100%; overflow-y:auto; padding:20px 28px;
+  flex:1 1 50%; height:100%; overflow-y:auto; padding:20px 28px;
   background:#fff;
 }
 
@@ -236,6 +242,7 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
   <div class="editor-pane">
     <textarea id="editor" spellcheck="false" placeholder="Type your Markdown here..."></textarea>
   </div>
+  <div class="divider" id="divider"></div>
   <div class="preview-pane" id="preview"></div>
 </div>
 
@@ -249,7 +256,7 @@ function quickMd(s) {
     .replace(/^# (.+)$/gm,'<h1>$1</h1>')
     .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
     .replace(/\*(.+?)\*/g,'<em>$1</em>')
-    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\x60([^\x60]+)\x60/g,'<code>$1</code>')
     .replace(/^[-*] (.+)$/gm,'<li>$1</li>')
     .replace(/^---$/gm,'<hr>')
     .replace(/\n\n/g,'</p><p>')
@@ -270,6 +277,41 @@ sc.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
 sc.async = true;
 sc.onload = function() { marked.setOptions({breaks:true,gfm:true}); useMarked=true; render(); };
 document.head.appendChild(sc);
+
+// Draggable divider between editor and preview panes
+(function() {
+  var divider = document.getElementById('divider');
+  var container = document.querySelector('.container');
+  var editorPane = document.querySelector('.editor-pane');
+  var previewPane = document.querySelector('.preview-pane');
+  var dragging = false;
+
+  divider.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    dragging = true;
+    divider.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var rect = container.getBoundingClientRect();
+    var offset = e.clientX - rect.left;
+    var pct = (offset / rect.width) * 100;
+    pct = Math.max(15, Math.min(85, pct));
+    editorPane.style.flexBasis = pct + '%';
+    previewPane.style.flexBasis = (100 - pct) + '%';
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    divider.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
 
 (async function() {
   const editor = document.getElementById('editor');
