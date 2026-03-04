@@ -1,3 +1,11 @@
+// TinyMD — a fast, minimal Markdown editor for Windows.
+//
+// Build for release (2.6 MB, no console window):
+//   GOOS=windows go build -ldflags="-s -w -H windowsgui" -trimpath -o tinymd.exe .
+//
+// Build for development (with debug info and console):
+//   GOOS=windows go build -o tinymd.exe .
+
 package main
 
 import (
@@ -127,15 +135,7 @@ func main() {
 		return filepath.Base(path)
 	})
 
-	w.Bind("goGetInitialContent", func() string {
-		return initialContent
-	})
-
-	w.Bind("goGetFileName", func() string {
-		return currentFile
-	})
-
-	w.Navigate("data:text/html," + dataURI(htmlPage()))
+	w.Navigate("data:text/html," + dataURI(htmlPage(initialContent, currentFile)))
 	w.Run()
 }
 
@@ -167,7 +167,19 @@ func dataURI(html string) string {
 	return r.Replace(html)
 }
 
-func htmlPage() string {
+func jsEscape(s string) string {
+	r := strings.NewReplacer(
+		`\`, `\\`,
+		`"`, `\"`,
+		"\n", `\n`,
+		"\r", `\r`,
+		"\t", `\t`,
+		"</", `<\/`,
+	)
+	return r.Replace(s)
+}
+
+func htmlPage(initialContent, fileName string) string {
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -261,6 +273,9 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 </div>
 
 <script>
+var _initContent = "` + jsEscape(initialContent) + `";
+var _initFname = "` + jsEscape(fileName) + `";
+
 // Lightweight inline markdown renderer for instant startup (no CDN wait)
 function quickMd(s) {
   var h = s
@@ -327,27 +342,22 @@ document.head.appendChild(sc);
   });
 })();
 
-(async function() {
-  const editor = document.getElementById('editor');
-  const preview = document.getElementById('preview');
-  const savedEl = document.getElementById('saved');
-  const fnameEl = document.getElementById('fname');
+// Synchronous init — no async bridge calls, everything is instant
+(function() {
+  var editor = document.getElementById('editor');
+  var savedEl = document.getElementById('saved');
+  var fnameEl = document.getElementById('fname');
 
-  // Load initial content from Go
-  const initial = await goGetInitialContent();
-  const fname = await goGetFileName();
-  if (initial) editor.value = initial;
-  if (fname) fnameEl.textContent = fname.replace(/.*[\\\/]/, '');
+  if (_initContent) editor.value = _initContent;
+  if (_initFname) fnameEl.textContent = _initFname.replace(/.*[\\\/]/, '');
 
-  // Live preview on every keystroke
   editor.addEventListener('input', render);
 
-  // Tab key inserts a tab instead of moving focus
   editor.addEventListener('keydown', function(e) {
     if (e.key === 'Tab') {
       e.preventDefault();
-      const start = this.selectionStart;
-      const end = this.selectionEnd;
+      var start = this.selectionStart;
+      var end = this.selectionEnd;
       this.value = this.value.substring(0, start) + '\t' + this.value.substring(end);
       this.selectionStart = this.selectionEnd = start + 1;
       render();
@@ -358,25 +368,24 @@ document.head.appendChild(sc);
   document.addEventListener('keydown', async function(e) {
     if (e.ctrlKey && e.key === 's') {
       e.preventDefault();
-      const result = await goSaveFile(editor.value);
+      var result = await goSaveFile(editor.value);
       if (result === 'ok') {
         savedEl.classList.add('show');
-        setTimeout(() => savedEl.classList.remove('show'), 1500);
+        setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
       } else if (result === 'no file') {
-        const name = await goShowSaveDialog();
+        var name = await goShowSaveDialog();
         if (name) {
           fnameEl.textContent = name;
-          const r2 = await goSaveFile(editor.value);
+          var r2 = await goSaveFile(editor.value);
           if (r2 === 'ok') {
             savedEl.classList.add('show');
-            setTimeout(() => savedEl.classList.remove('show'), 1500);
+            setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
           }
         }
       }
     }
   });
 
-  // Initial render
   render();
   editor.focus();
 })();
