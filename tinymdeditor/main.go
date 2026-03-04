@@ -1,3 +1,11 @@
+// TinyMD — a fast, minimal Markdown editor for Windows.
+//
+// Build for release (2.6 MB, no console window):
+//   GOOS=windows go build -ldflags="-s -w -H windowsgui" -trimpath -o tinymd.exe .
+//
+// Build for development (with debug info and console):
+//   GOOS=windows go build -o tinymd.exe .
+
 package main
 
 import (
