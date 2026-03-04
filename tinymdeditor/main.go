@@ -24,8 +24,33 @@ var currentFile string
 var (
 	comdlg32         = syscall.NewLazyDLL("comdlg32.dll")
 	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
-	user32           = syscall.NewLazyDLL("user32.dll")
-	getForegroundWin = user32.NewProc("GetForegroundWindow")
+
+	user32              = syscall.NewLazyDLL("user32.dll")
+	getForegroundWin    = user32.NewProc("GetForegroundWindow")
+	registerClassExW    = user32.NewProc("RegisterClassExW")
+	createWindowExW     = user32.NewProc("CreateWindowExW")
+	showWindowProc      = user32.NewProc("ShowWindow")
+	updateWindowProc    = user32.NewProc("UpdateWindow")
+	destroyWindowProc   = user32.NewProc("DestroyWindow")
+	defWindowProcW      = user32.NewProc("DefWindowProcW")
+	getSystemMetrics    = user32.NewProc("GetSystemMetrics")
+	beginPaint          = user32.NewProc("BeginPaint")
+	endPaint            = user32.NewProc("EndPaint")
+	fillRect            = user32.NewProc("FillRect")
+	drawTextW           = user32.NewProc("DrawTextW")
+	loadCursorW         = user32.NewProc("LoadCursorW")
+	getClientRect       = user32.NewProc("GetClientRect")
+
+	gdi32          = syscall.NewLazyDLL("gdi32.dll")
+	createFontW    = gdi32.NewProc("CreateFontW")
+	selectObject   = gdi32.NewProc("SelectObject")
+	setBkMode      = gdi32.NewProc("SetBkMode")
+	setTextColor   = gdi32.NewProc("SetTextColor")
+	deleteObject   = gdi32.NewProc("DeleteObject")
+	getSysColorBrush = user32.NewProc("GetSysColorBrush")
+
+	kernel32          = syscall.NewLazyDLL("kernel32.dll")
+	getModuleHandleW  = kernel32.NewProc("GetModuleHandleW")
 )
 
 func getHWND() uintptr {
@@ -86,6 +111,153 @@ func utf16From(s string) []uint16 {
 	return r
 }
 
+// splashTitle is set before showSplash and used by the WndProc to paint text.
+var splashTitle string
+
+func splashWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
+	const (
+		WM_PAINT   = 0x000F
+		WM_DESTROY = 0x0002
+		TRANSPARENT = 1
+		DT_CENTER   = 0x01
+		DT_VCENTER  = 0x04
+		DT_SINGLELINE = 0x20
+		DT_NOPREFIX   = 0x0800
+	)
+
+	switch msg {
+	case WM_PAINT:
+		// PAINTSTRUCT is 72 bytes on 64-bit
+		var ps [72]byte
+		hdc, _, _ := beginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps[0])))
+		if hdc == 0 {
+			break
+		}
+
+		var rc [16]byte // RECT: 4x int32
+		getClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc[0])))
+
+		// Fill white background
+		whiteBrush, _, _ := getSysColorBrush.Call(0) // COLOR_WINDOW
+		fillRect.Call(hdc, uintptr(unsafe.Pointer(&rc[0])), whiteBrush)
+
+		setBkMode.Call(hdc, TRANSPARENT)
+
+		// Large title font
+		titleFont, _, _ := createFontW.Call(
+			uintptr(uint32(0xFFFFFFD8)), // -40 (40px)
+			0, 0, 0,
+			700, // bold
+			0, 0, 0, 0, 0, 0, 0, 0,
+			uintptr(unsafe.Pointer(utf16Ptr("Segoe UI"))),
+		)
+		oldFont, _, _ := selectObject.Call(hdc, titleFont)
+		setTextColor.Call(hdc, 0x00222222) // dark gray
+
+		// Draw "TinyMD" centered, slightly above middle
+		titleRC := rc
+		// Shift up by 30px: reduce bottom by 60
+		bottom := *(*int32)(unsafe.Pointer(&titleRC[12]))
+		*(*int32)(unsafe.Pointer(&titleRC[12])) = bottom - 60
+		titleText := utf16From("TinyMD")
+		drawTextW.Call(hdc, uintptr(unsafe.Pointer(&titleText[0])),
+			uintptr(len(titleText)-1), // exclude null terminator
+			uintptr(unsafe.Pointer(&titleRC[0])),
+			DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX)
+
+		// Small subtitle font
+		subFont, _, _ := createFontW.Call(
+			uintptr(uint32(0xFFFFFFF2)), // -14 (14px)
+			0, 0, 0,
+			400, // normal
+			0, 0, 0, 0, 0, 0, 0, 0,
+			uintptr(unsafe.Pointer(utf16Ptr("Segoe UI"))),
+		)
+		selectObject.Call(hdc, subFont)
+		setTextColor.Call(hdc, 0x00999999) // light gray
+
+		// Draw subtitle centered, slightly below middle
+		subRC := rc
+		*(*int32)(unsafe.Pointer(&subRC[4])) = *(*int32)(unsafe.Pointer(&subRC[4])) + 30 // shift top down
+		subText := utf16From(splashTitle)
+		drawTextW.Call(hdc, uintptr(unsafe.Pointer(&subText[0])),
+			uintptr(len(subText)-1),
+			uintptr(unsafe.Pointer(&subRC[0])),
+			DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX)
+
+		selectObject.Call(hdc, oldFont)
+		deleteObject.Call(titleFont)
+		deleteObject.Call(subFont)
+		endPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps[0])))
+		return 0
+	}
+
+	ret, _, _ := defWindowProcW.Call(hwnd, msg, wParam, lParam)
+	return ret
+}
+
+func utf16Ptr(s string) *uint16 {
+	p, _ := syscall.UTF16PtrFromString(s)
+	return p
+}
+
+func showSplash(title string) uintptr {
+	splashTitle = title
+
+	const (
+		WS_OVERLAPPEDWINDOW = 0x00CF0000
+		WS_VISIBLE          = 0x10000000
+		CW_USEDEFAULT       = 0x80000000
+		SM_CXSCREEN         = 0
+		SM_CYSCREEN         = 1
+		IDC_ARROW           = 32512
+	)
+
+	hInstance, _, _ := getModuleHandleW.Call(0)
+	cursor, _, _ := loadCursorW.Call(0, IDC_ARROW)
+
+	className := utf16From("TinyMDSplash")
+
+	// WNDCLASSEXW struct (80 bytes on 64-bit)
+	var wc [80]byte
+	*(*uint32)(unsafe.Pointer(&wc[0])) = 80                                                 // cbSize
+	*(*uintptr)(unsafe.Pointer(&wc[8])) = syscall.NewCallback(splashWndProc)                 // lpfnWndProc
+	*(*uintptr)(unsafe.Pointer(&wc[48])) = hInstance                                         // hInstance
+	*(*uintptr)(unsafe.Pointer(&wc[56])) = cursor                                            // hCursor
+	*(*uintptr)(unsafe.Pointer(&wc[64])) = 6                                                 // hbrBackground = COLOR_WINDOW+1
+	*(*uintptr)(unsafe.Pointer(&wc[72])) = uintptr(unsafe.Pointer(&className[0]))            // lpszClassName
+
+	registerClassExW.Call(uintptr(unsafe.Pointer(&wc[0])))
+
+	// Center on screen
+	w, h := uintptr(1400), uintptr(900)
+	screenW, _, _ := getSystemMetrics.Call(SM_CXSCREEN)
+	screenH, _, _ := getSystemMetrics.Call(SM_CYSCREEN)
+	x := (screenW - w) / 2
+	y := (screenH - h) / 2
+
+	windowTitle := utf16From(title)
+	hwnd, _, _ := createWindowExW.Call(
+		0, // dwExStyle
+		uintptr(unsafe.Pointer(&className[0])),
+		uintptr(unsafe.Pointer(&windowTitle[0])),
+		WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+		x, y, w, h,
+		0, 0, hInstance, 0,
+	)
+
+	showWindowProc.Call(hwnd, 5) // SW_SHOW
+	updateWindowProc.Call(hwnd)
+
+	return hwnd
+}
+
+func destroySplash(hwnd uintptr) {
+	if hwnd != 0 {
+		destroyWindowProc.Call(hwnd)
+	}
+}
+
 func main() {
 	// If a file was passed as argument, load it
 	var initialContent string
@@ -96,6 +268,9 @@ func main() {
 			initialContent = string(data)
 		}
 	}
+
+	// Show a native splash window immediately (~50ms) while WebView2 loads (~2-3s).
+	splash := showSplash(windowTitle())
 
 	// Use a fixed data path so WebView2 reuses its cached browser profile
 	// instead of recreating it every launch (~1s saving on cold start).
@@ -113,10 +288,14 @@ func main() {
 		},
 	})
 	if w == nil {
+		destroySplash(splash)
 		fmt.Fprintln(os.Stderr, "Failed to create webview2 — is Edge WebView2 Runtime installed?")
 		os.Exit(1)
 	}
 	defer w.Destroy()
+
+	// WebView2 is ready — destroy splash so the real window takes over.
+	destroySplash(splash)
 
 	// Bind Go functions for JS to call
 	w.Bind("goSaveFile", func(content string) string {
