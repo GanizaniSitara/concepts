@@ -3,12 +3,66 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"syscall"
+	"unsafe"
 
 	"github.com/jchv/go-webview2"
 )
 
 var currentFile string
+
+var (
+	comdlg32         = syscall.NewLazyDLL("comdlg32.dll")
+	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
+)
+
+func showSaveDialog() string {
+	buf := make([]uint16, 260)
+
+	filter, _ := syscall.UTF16FromString("Markdown Files (*.md)\x00*.md\x00All Files (*.*)\x00*.*\x00\x00")
+	title, _ := syscall.UTF16FromString("Save As")
+	defExt, _ := syscall.UTF16FromString("md")
+
+	type openFileName struct {
+		lStructSize       uint32
+		hwndOwner         uintptr
+		hInstance         uintptr
+		lpstrFilter       *uint16
+		lpstrCustomFilter *uint16
+		nMaxCustFilter    uint32
+		nFilterIndex      uint32
+		lpstrFile         *uint16
+		nMaxFile          uint32
+		lpstrFileTitle    *uint16
+		nMaxFileTitle     uint32
+		lpstrInitialDir   *uint16
+		lpstrTitle        *uint16
+		flags             uint32
+		nFileOffset       uint16
+		nFileExtension    uint16
+		lpstrDefExt       *uint16
+		lCustData         uintptr
+		lpfnHook          uintptr
+		lpTemplateName    *uint16
+	}
+
+	ofnStruct := &openFileName{
+		lStructSize: uint32(unsafe.Sizeof(openFileName{})),
+		lpstrFilter: &filter[0],
+		lpstrFile:   &buf[0],
+		nMaxFile:    uint32(len(buf)),
+		lpstrTitle:  &title[0],
+		flags:       0x00000002 | 0x00000800, // OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST
+		lpstrDefExt: &defExt[0],
+	}
+	ret, _, _ := getSaveFileNameW.Call(uintptr(unsafe.Pointer(ofnStruct)))
+	if ret == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buf)
+}
 
 func main() {
 	// If a file was passed as argument, load it
@@ -47,6 +101,16 @@ func main() {
 			return "error: " + err.Error()
 		}
 		return "ok"
+	})
+
+	w.Bind("goShowSaveDialog", func() string {
+		path := showSaveDialog()
+		if path == "" {
+			return ""
+		}
+		currentFile = path
+		w.SetTitle(windowTitle())
+		return filepath.Base(path)
 	})
 
 	w.Bind("goGetInitialContent", func() string {
@@ -175,26 +239,49 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
   <div class="preview-pane" id="preview"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+// Lightweight inline markdown renderer for instant startup (no CDN wait)
+function quickMd(s) {
+  var h = s
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,'<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/^[-*] (.+)$/gm,'<li>$1</li>')
+    .replace(/^---$/gm,'<hr>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>');
+  return '<p>' + h + '</p>';
+}
+
+var useMarked = false;
+
+function render() {
+  var text = document.getElementById('editor').value;
+  document.getElementById('preview').innerHTML = useMarked ? marked.parse(text) : quickMd(text);
+}
+
+// Load marked.js async — UI is usable immediately
+var sc = document.createElement('script');
+sc.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+sc.async = true;
+sc.onload = function() { marked.setOptions({breaks:true,gfm:true}); useMarked=true; render(); };
+document.head.appendChild(sc);
+
 (async function() {
   const editor = document.getElementById('editor');
   const preview = document.getElementById('preview');
   const savedEl = document.getElementById('saved');
   const fnameEl = document.getElementById('fname');
 
-  // Configure marked
-  marked.setOptions({ breaks: true, gfm: true });
-
   // Load initial content from Go
   const initial = await goGetInitialContent();
   const fname = await goGetFileName();
   if (initial) editor.value = initial;
   if (fname) fnameEl.textContent = fname.replace(/.*[\\\/]/, '');
-
-  function render() {
-    preview.innerHTML = marked.parse(editor.value);
-  }
 
   // Live preview on every keystroke
   editor.addEventListener('input', render);
@@ -211,7 +298,7 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
     }
   });
 
-  // Ctrl+S to save
+  // Ctrl+S to save — shows native Save As dialog if no file was specified
   document.addEventListener('keydown', async function(e) {
     if (e.ctrlKey && e.key === 's') {
       e.preventDefault();
@@ -220,7 +307,15 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
         savedEl.classList.add('show');
         setTimeout(() => savedEl.classList.remove('show'), 1500);
       } else if (result === 'no file') {
-        // No file specified — could add Save As dialog later
+        const name = await goShowSaveDialog();
+        if (name) {
+          fnameEl.textContent = name;
+          const r2 = await goSaveFile(editor.value);
+          if (r2 === 'ok') {
+            savedEl.classList.add('show');
+            setTimeout(() => savedEl.classList.remove('show'), 1500);
+          }
+        }
       }
     }
   });
