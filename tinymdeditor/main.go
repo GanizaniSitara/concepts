@@ -16,52 +16,66 @@ var currentFile string
 var (
 	comdlg32         = syscall.NewLazyDLL("comdlg32.dll")
 	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
+	user32           = syscall.NewLazyDLL("user32.dll")
+	getForegroundWin = user32.NewProc("GetForegroundWindow")
 )
 
-func showSaveDialog() string {
+func getHWND() uintptr {
+	hwnd, _, _ := getForegroundWin.Call()
+	return hwnd
+}
+
+func showSaveDialog(hwnd uintptr) string {
 	buf := make([]uint16, 260)
 
-	filter, _ := syscall.UTF16FromString("Markdown Files (*.md)\x00*.md\x00All Files (*.*)\x00*.*\x00\x00")
-	title, _ := syscall.UTF16FromString("Save As")
-	defExt, _ := syscall.UTF16FromString("md")
+	// Double-null separated filter string
+	filter := append(utf16From("Markdown Files (*.md)"), 0)
+	filter = append(filter, utf16From("*.md")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("All Files (*.*)")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("*.*")...)
+	filter = append(filter, 0, 0)
 
-	type openFileName struct {
-		lStructSize       uint32
-		hwndOwner         uintptr
-		hInstance         uintptr
-		lpstrFilter       *uint16
-		lpstrCustomFilter *uint16
-		nMaxCustFilter    uint32
-		nFilterIndex      uint32
-		lpstrFile         *uint16
-		nMaxFile          uint32
-		lpstrFileTitle    *uint16
-		nMaxFileTitle     uint32
-		lpstrInitialDir   *uint16
-		lpstrTitle        *uint16
-		flags             uint32
-		nFileOffset       uint16
-		nFileExtension    uint16
-		lpstrDefExt       *uint16
-		lCustData         uintptr
-		lpfnHook          uintptr
-		lpTemplateName    *uint16
-	}
+	title := utf16From("Save As")
+	title = append(title, 0)
+	defExt := utf16From("md")
+	defExt = append(defExt, 0)
 
-	ofnStruct := &openFileName{
-		lStructSize: uint32(unsafe.Sizeof(openFileName{})),
-		lpstrFilter: &filter[0],
-		lpstrFile:   &buf[0],
-		nMaxFile:    uint32(len(buf)),
-		lpstrTitle:  &title[0],
-		flags:       0x00000002 | 0x00000800, // OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST
-		lpstrDefExt: &defExt[0],
-	}
-	ret, _, _ := getSaveFileNameW.Call(uintptr(unsafe.Pointer(ofnStruct)))
+	// Use a flat byte buffer to avoid Go struct padding issues with OPENFILENAMEW.
+	// OPENFILENAMEW on 64-bit is 152 bytes.
+	const structSize = 152
+	var ofn [structSize]byte
+
+	// lStructSize (offset 0, uint32)
+	*(*uint32)(unsafe.Pointer(&ofn[0])) = structSize
+	// hwndOwner (offset 8, uintptr — after 4 bytes padding on 64-bit)
+	*(*uintptr)(unsafe.Pointer(&ofn[8])) = hwnd
+	// lpstrFilter (offset 24 on 64-bit: 8+8+8)
+	*(*uintptr)(unsafe.Pointer(&ofn[24])) = uintptr(unsafe.Pointer(&filter[0]))
+	// nFilterIndex (offset 44: 24+8+8+4)
+	*(*uint32)(unsafe.Pointer(&ofn[44])) = 1
+	// lpstrFile (offset 48)
+	*(*uintptr)(unsafe.Pointer(&ofn[48])) = uintptr(unsafe.Pointer(&buf[0]))
+	// nMaxFile (offset 56)
+	*(*uint32)(unsafe.Pointer(&ofn[56])) = uint32(len(buf))
+	// lpstrTitle (offset 80: after lpstrFileTitle(72)+nMaxFileTitle(76) region)
+	*(*uintptr)(unsafe.Pointer(&ofn[80])) = uintptr(unsafe.Pointer(&title[0]))
+	// flags (offset 88)
+	*(*uint32)(unsafe.Pointer(&ofn[88])) = 0x00000002 | 0x00000800 // OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST
+	// lpstrDefExt (offset 96: after nFileOffset(92)+nFileExtension(94)+padding)
+	*(*uintptr)(unsafe.Pointer(&ofn[96])) = uintptr(unsafe.Pointer(&defExt[0]))
+
+	ret, _, _ := getSaveFileNameW.Call(uintptr(unsafe.Pointer(&ofn[0])))
 	if ret == 0 {
 		return ""
 	}
 	return syscall.UTF16ToString(buf)
+}
+
+func utf16From(s string) []uint16 {
+	r, _ := syscall.UTF16FromString(s)
+	return r
 }
 
 func main() {
@@ -104,7 +118,7 @@ func main() {
 	})
 
 	w.Bind("goShowSaveDialog", func() string {
-		path := showSaveDialog()
+		path := showSaveDialog(getHWND())
 		if path == "" {
 			return ""
 		}
