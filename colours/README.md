@@ -32,18 +32,13 @@ Defined in Scheme 1 (Moss Tidal). Inherited by Schemes 2 and 3.
 
 | Colour | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Spark | 5. Nebula Dark |
 |---|---|---|---|---|---|
-| Navy | ![](https://img.shields.io/badge/-%23022D5E-022D5E?style=flat-square) | \* | \* | | |
-| Blue | ![](https://img.shields.io/badge/-%23005587-005587?style=flat-square) | \* | \* | | |
-| Gray | ![](https://img.shields.io/badge/-%2353565A-53565A?style=flat-square) | \* | \* | | |
-| Olive | ![](https://img.shields.io/badge/-%23789D4A-789D4A?style=flat-square) | \* | \* | | |
-| Wine | ![](https://img.shields.io/badge/-%23621244-621244?style=flat-square) | \* | \* | | |
-| Cerulean | ![](https://img.shields.io/badge/-%23008BCD-008BCD?style=flat-square) | \* | \* | | |
-| Teal | ![](https://img.shields.io/badge/-%2300897B-00897B?style=flat-square) | \* | \* | | |
-| Denim Blue | ![](https://img.shields.io/badge/-%2336749D-36749D?style=flat-square) | \* | \* | | |
-| Aqua | ![](https://img.shields.io/badge/-%2300BFB3-00BFB3?style=flat-square) | \* | \* | | |
-| Plum | ![](https://img.shields.io/badge/-%2380276C-80276C?style=flat-square) | \* | \* | | |
-| Forest | ![](https://img.shields.io/badge/-%23215D25-215D25?style=flat-square) | \* | \* | | |
-| Glacier | ![](https://img.shields.io/badge/-%236BA4B8-6BA4B8?style=flat-square) | \* | \* | | |
+| Colour 1 | ![](https://img.shields.io/badge/-%23621244-621244?style=flat-square) | \* | \* | | |
+| Colour 2 | ![](https://img.shields.io/badge/-%23008BCD-008BCD?style=flat-square) | \* | \* | | |
+| Colour 3 | ![](https://img.shields.io/badge/-%2336749D-36749D?style=flat-square) | \* | \* | | |
+| Colour 4 | ![](https://img.shields.io/badge/-%2300BFB3-00BFB3?style=flat-square) | \* | \* | | |
+| Colour 5 | ![](https://img.shields.io/badge/-%2380276C-80276C?style=flat-square) | \* | \* | | |
+| Colour 6 | ![](https://img.shields.io/badge/-%23215D25-215D25?style=flat-square) | \* | \* | | |
+| Colour 7 | ![](https://img.shields.io/badge/-%236BA4B8-6BA4B8?style=flat-square) | \* | \* | | |
 
 \* = inherited from Scheme 1
 
