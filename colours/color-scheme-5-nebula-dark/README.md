@@ -23,7 +23,7 @@ Dark theme using the Nebula colour family. Deep navy backgrounds designed for da
 | `--c-surface-blue` | `#293150` | ![](https://img.shields.io/badge/-%23293150-293150?style=flat-square) |
 | `--c-slate-blue` | `#334168` | ![](https://img.shields.io/badge/-%23334168-334168?style=flat-square) |
 | `--c-electric-blue` | `#2196F3` | ![](https://img.shields.io/badge/-%232196F3-2196F3?style=flat-square) |
-| `--c-teal` | `#00BFA5` | ![](https://img.shields.io/badge/-%2300BFA5-00BFA5?style=flat-square) |
+| `--c-teal` | `#00BFB3` | ![](https://img.shields.io/badge/-%2300BFB3-00BFB3?style=flat-square) |
 
 ## Secondary colours
 
