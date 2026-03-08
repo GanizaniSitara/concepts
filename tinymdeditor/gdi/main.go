@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -80,6 +81,14 @@ var (
 
 	// comdlg32
 	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
+	printDlgW        = comdlg32.NewProc("PrintDlgW")
+
+	// gdi32 — printing
+	startDocW  = gdi32.NewProc("StartDocW")
+	endDoc     = gdi32.NewProc("EndDoc")
+	startPage  = gdi32.NewProc("StartPage")
+	endPage    = gdi32.NewProc("EndPage")
+	getDeviceCaps = gdi32.NewProc("GetDeviceCaps")
 )
 
 // Win32 constants
@@ -116,6 +125,7 @@ const (
 	EN_CHANGE = 0x0300
 
 	VK_S = 0x53
+	VK_P = 0x50
 	VK_TAB = 0x09
 
 	DT_WORDBREAK  = 0x0010
@@ -148,6 +158,16 @@ const (
 	MK_CONTROL = 0x0008
 
 	TIMER_DEBOUNCE = 1
+
+	// Printing
+	PD_RETURNDC        = 0x00000100
+	PD_USEDEVMODECOPIESANDCOLLATE = 0x00040000
+	LOGPIXELSX         = 88
+	LOGPIXELSY         = 90
+	HORZRES            = 8
+	VERTRES            = 10
+	PHYSICALOFFSETX    = 112
+	PHYSICALOFFSETY    = 113
 )
 
 // Helpers
@@ -682,6 +702,10 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		state, _, _ := user32.NewProc("GetKeyState").Call(0x11) // VK_CONTROL
 		if int16(state) < 0 && wParam == VK_S {
 			saveFile()
+			return 0
+		}
+		if int16(state) < 0 && wParam == VK_P {
+			printFormatted()
 			return 0
 		}
 
@@ -1221,15 +1245,402 @@ func showSaveDialog(hwnd uintptr) string {
 	return syscall.UTF16ToString(buf)
 }
 
+func printFormatted() {
+	if len(currentBlocks) == 0 {
+		return
+	}
+
+	// PRINTDLGW is 120 bytes on 64-bit
+	const pdSize = 120
+	var pd [pdSize]byte
+	*(*uint32)(unsafe.Pointer(&pd[0])) = pdSize
+	*(*uintptr)(unsafe.Pointer(&pd[8])) = mainHwnd // hwndOwner
+	*(*uint32)(unsafe.Pointer(&pd[40])) = PD_RETURNDC | PD_USEDEVMODECOPIESANDCOLLATE
+
+	ret, _, _ := printDlgW.Call(uintptr(unsafe.Pointer(&pd[0])))
+	if ret == 0 {
+		return
+	}
+
+	printerDC := *(*uintptr)(unsafe.Pointer(&pd[32])) // hDC
+	if printerDC == 0 {
+		return
+	}
+	defer deleteDC.Call(printerDC)
+
+	// Get printer metrics
+	dpiX, _, _ := getDeviceCaps.Call(printerDC, LOGPIXELSX)
+	dpiY, _, _ := getDeviceCaps.Call(printerDC, LOGPIXELSY)
+	pageW, _, _ := getDeviceCaps.Call(printerDC, HORZRES)
+	pageH, _, _ := getDeviceCaps.Call(printerDC, VERTRES)
+	scaleX := float64(dpiX) / 96.0
+	scaleY := float64(dpiY) / 96.0
+
+	// Create scaled fonts for the printer DC
+	pFontH1 := makePrintFont(-28, 700, 0, "Segoe UI", scaleY)
+	pFontH2 := makePrintFont(-22, 700, 0, "Segoe UI", scaleY)
+	pFontH3 := makePrintFont(-18, 700, 0, "Segoe UI", scaleY)
+	pFontBody := makePrintFont(-14, 400, 0, "Segoe UI", scaleY)
+	pFontBodyBold := makePrintFont(-14, 700, 0, "Segoe UI", scaleY)
+	pFontBodyItalic := makePrintFont(-14, 400, 1, "Segoe UI", scaleY)
+	pFontCode := makePrintFont(-14, 400, 0, "Consolas", scaleY)
+	defer func() {
+		for _, f := range []uintptr{pFontH1, pFontH2, pFontH3, pFontBody, pFontBodyBold, pFontBodyItalic, pFontCode} {
+			deleteObject.Call(f)
+		}
+	}()
+
+	// Map screen fonts to printer fonts
+	fontMap := map[uintptr]uintptr{
+		fontH1: pFontH1, fontH2: pFontH2, fontH3: pFontH3,
+		fontBody: pFontBody, fontBodyBold: pFontBodyBold,
+		fontBodyItalic: pFontBodyItalic, fontCode: pFontCode,
+	}
+
+	// StartDoc
+	// DOCINFOW on 64-bit: cbSize(4) + pad(4) + lpszDocName(8) + lpszOutput(8) + lpszDatatype(8) + fwType(4) + pad(4) = 40
+	docName := utf16From("TinyMD Print")
+	var di [40]byte
+	*(*int32)(unsafe.Pointer(&di[0])) = 40
+	*(*uintptr)(unsafe.Pointer(&di[8])) = uintptr(unsafe.Pointer(&docName[0]))
+	r, _, _ := startDocW.Call(printerDC, uintptr(unsafe.Pointer(&di[0])))
+	if int32(r) <= 0 {
+		return
+	}
+
+	padding := int32(float64(30) * scaleX)
+	drawWidth := int32(pageW) - padding*2
+
+	// Create printer brushes
+	pGrayBrush, _, _ := createSolidBrush.Call(0x00DDDDDD)
+	pBlueBrush, _, _ := createSolidBrush.Call(0x00D66603)
+	pCodeBrush, _, _ := createSolidBrush.Call(0x00FAF8F6)
+	defer func() {
+		deleteObject.Call(pGrayBrush)
+		deleteObject.Call(pBlueBrush)
+		deleteObject.Call(pCodeBrush)
+	}()
+
+	startPage.Call(printerDC)
+	setBkMode.Call(printerDC, TRANSPARENT)
+
+	y := padding
+	maxY := int32(pageH) - padding
+	for i := range currentBlocks {
+		b := &currentBlocks[i]
+		spaceAbove := int32(float64(b.SpaceAbove) * scaleY)
+		indent := int32(float64(b.Indent) * scaleX)
+
+		// Map font
+		pFont := fontMap[b.Font]
+		if pFont == 0 {
+			pFont = pFontBody
+		}
+
+		if b.IsHR {
+			y += spaceAbove
+			hrPen, _, _ := createPen.Call(0, 1, 0x00BBBBBB)
+			oldP, _, _ := selectObject.Call(printerDC, hrPen)
+			hrY := y + int32(8*scaleY)
+			moveToEx.Call(printerDC, uintptr(padding), uintptr(hrY), 0)
+			lineTo.Call(printerDC, uintptr(int32(pageW)-padding), uintptr(hrY))
+			selectObject.Call(printerDC, oldP)
+			deleteObject.Call(hrPen)
+			y += int32(16 * scaleY)
+			continue
+		}
+
+		if b.IsTable && b.Table != nil {
+			y += spaceAbove
+			td := b.Table
+			numCols := len(td.Headers)
+			if numCols == 0 {
+				continue
+			}
+			cellPad := int32(float64(8) * scaleX)
+
+			// Measure columns
+			colWidths := make([]int32, numCols)
+			oldF, _, _ := selectObject.Call(printerDC, pFontH3)
+			for ci, cell := range td.Headers {
+				cellTxt := utf16From(cell.Text)
+				var mRC [16]byte
+				*(*int32)(unsafe.Pointer(&mRC[8])) = 10000
+				*(*int32)(unsafe.Pointer(&mRC[12])) = 10000
+				drawTextW.Call(printerDC, uintptr(unsafe.Pointer(&cellTxt[0])),
+					uintptr(len(cellTxt)-1), uintptr(unsafe.Pointer(&mRC[0])),
+					DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE)
+				w := *(*int32)(unsafe.Pointer(&mRC[8]))
+				if w > colWidths[ci] {
+					colWidths[ci] = w
+				}
+			}
+			selectObject.Call(printerDC, pFontBody)
+			for _, row := range td.Rows {
+				for ci, cell := range row {
+					if ci >= numCols {
+						break
+					}
+					cellTxt := utf16From(cell.Text)
+					var mRC [16]byte
+					*(*int32)(unsafe.Pointer(&mRC[8])) = 10000
+					*(*int32)(unsafe.Pointer(&mRC[12])) = 10000
+					drawTextW.Call(printerDC, uintptr(unsafe.Pointer(&cellTxt[0])),
+						uintptr(len(cellTxt)-1), uintptr(unsafe.Pointer(&mRC[0])),
+						DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE)
+					w := *(*int32)(unsafe.Pointer(&mRC[8]))
+					if w > colWidths[ci] {
+						colWidths[ci] = w
+					}
+				}
+			}
+			for ci := range colWidths {
+				colWidths[ci] += cellPad * 2
+			}
+
+			// Measure row height
+			sampleTxt := utf16From("Ay")
+			var measureRC [16]byte
+			*(*int32)(unsafe.Pointer(&measureRC[8])) = 10000
+			*(*int32)(unsafe.Pointer(&measureRC[12])) = 10000
+			drawTextW.Call(printerDC, uintptr(unsafe.Pointer(&sampleTxt[0])),
+				uintptr(len(sampleTxt)-1), uintptr(unsafe.Pointer(&measureRC[0])),
+				DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE)
+			rowH := *(*int32)(unsafe.Pointer(&measureRC[12])) + cellPad*2
+			selectObject.Call(printerDC, oldF)
+
+			colLeft := make([]int32, numCols+1)
+			colLeft[0] = padding
+			for ci := 0; ci < numCols; ci++ {
+				colLeft[ci+1] = colLeft[ci] + colWidths[ci]
+			}
+
+			tablePen, _, _ := createPen.Call(0, 1, 0x00DDDDDD)
+			oldPen, _, _ := selectObject.Call(printerDC, tablePen)
+			setTextColor.Call(printerDC, 0x00222222)
+
+			// Header row
+			oldF2, _, _ := selectObject.Call(printerDC, pFontH3)
+			for ci, cell := range td.Headers {
+				cl := colLeft[ci]
+				cr := colLeft[ci+1]
+				var cellRC [16]byte
+				*(*int32)(unsafe.Pointer(&cellRC[0])) = cl + cellPad
+				*(*int32)(unsafe.Pointer(&cellRC[4])) = y + cellPad
+				*(*int32)(unsafe.Pointer(&cellRC[8])) = cr - cellPad
+				*(*int32)(unsafe.Pointer(&cellRC[12])) = y + rowH - cellPad
+				cellTxt := utf16From(cell.Text)
+				drawTextW.Call(printerDC, uintptr(unsafe.Pointer(&cellTxt[0])),
+					uintptr(len(cellTxt)-1), uintptr(unsafe.Pointer(&cellRC[0])),
+					DT_NOPREFIX|DT_SINGLELINE|DT_NOCLIP)
+				moveToEx.Call(printerDC, uintptr(cl), uintptr(y), 0)
+				lineTo.Call(printerDC, uintptr(cr), uintptr(y))
+				moveToEx.Call(printerDC, uintptr(cl), uintptr(y), 0)
+				lineTo.Call(printerDC, uintptr(cl), uintptr(y+rowH))
+				moveToEx.Call(printerDC, uintptr(cr), uintptr(y), 0)
+				lineTo.Call(printerDC, uintptr(cr), uintptr(y+rowH))
+				moveToEx.Call(printerDC, uintptr(cl), uintptr(y+rowH), 0)
+				lineTo.Call(printerDC, uintptr(cr), uintptr(y+rowH))
+			}
+			selectObject.Call(printerDC, oldF2)
+			y += rowH
+
+			// Body rows
+			oldF2, _, _ = selectObject.Call(printerDC, pFontBody)
+			for _, row := range td.Rows {
+				if y+rowH > maxY {
+					endPage.Call(printerDC)
+					startPage.Call(printerDC)
+					setBkMode.Call(printerDC, TRANSPARENT)
+					y = padding
+				}
+				for ci, cell := range row {
+					if ci >= numCols {
+						break
+					}
+					cl := colLeft[ci]
+					cr := colLeft[ci+1]
+					var cellRC [16]byte
+					*(*int32)(unsafe.Pointer(&cellRC[0])) = cl + cellPad
+					*(*int32)(unsafe.Pointer(&cellRC[4])) = y + cellPad
+					*(*int32)(unsafe.Pointer(&cellRC[8])) = cr - cellPad
+					*(*int32)(unsafe.Pointer(&cellRC[12])) = y + rowH - cellPad
+					cellTxt := utf16From(cell.Text)
+					drawTextW.Call(printerDC, uintptr(unsafe.Pointer(&cellTxt[0])),
+						uintptr(len(cellTxt)-1), uintptr(unsafe.Pointer(&cellRC[0])),
+						DT_NOPREFIX|DT_SINGLELINE|DT_NOCLIP)
+					moveToEx.Call(printerDC, uintptr(cl), uintptr(y), 0)
+					lineTo.Call(printerDC, uintptr(cr), uintptr(y))
+					moveToEx.Call(printerDC, uintptr(cl), uintptr(y), 0)
+					lineTo.Call(printerDC, uintptr(cl), uintptr(y+rowH))
+					moveToEx.Call(printerDC, uintptr(cr), uintptr(y), 0)
+					lineTo.Call(printerDC, uintptr(cr), uintptr(y+rowH))
+					moveToEx.Call(printerDC, uintptr(cl), uintptr(y+rowH), 0)
+					lineTo.Call(printerDC, uintptr(cr), uintptr(y+rowH))
+				}
+				y += rowH
+			}
+			selectObject.Call(printerDC, oldF2)
+			selectObject.Call(printerDC, oldPen)
+			deleteObject.Call(tablePen)
+			continue
+		}
+
+		// Regular text block
+		codePad := int32(0)
+		if b.HasBg {
+			codePad = int32(float64(10) * scaleX)
+		}
+
+		// Measure
+		var measureRC [16]byte
+		*(*int32)(unsafe.Pointer(&measureRC[8])) = drawWidth - indent - codePad*2
+		*(*int32)(unsafe.Pointer(&measureRC[12])) = 10000
+		txt := utf16From(b.Text)
+		oldF, _, _ := selectObject.Call(printerDC, pFont)
+		drawTextW.Call(printerDC, uintptr(unsafe.Pointer(&txt[0])),
+			uintptr(len(txt)-1), uintptr(unsafe.Pointer(&measureRC[0])),
+			DT_CALCRECT|DT_WORDBREAK|DT_NOPREFIX|DT_EXPANDTABS|DT_EDITCONTROL)
+		textH := *(*int32)(unsafe.Pointer(&measureRC[12]))
+
+		blockH := textH + codePad*2 + spaceAbove
+
+		// Page break if needed
+		if y+blockH > maxY && y > padding {
+			endPage.Call(printerDC)
+			startPage.Call(printerDC)
+			setBkMode.Call(printerDC, TRANSPARENT)
+			y = padding
+		}
+
+		y += spaceAbove
+
+		// Background for code blocks
+		if b.HasBg {
+			var bgRC [16]byte
+			*(*int32)(unsafe.Pointer(&bgRC[0])) = padding + indent - int32(4*scaleX)
+			*(*int32)(unsafe.Pointer(&bgRC[4])) = y
+			*(*int32)(unsafe.Pointer(&bgRC[8])) = int32(pageW) - padding + int32(4*scaleX)
+			*(*int32)(unsafe.Pointer(&bgRC[12])) = y + textH + codePad*2
+			fillRect.Call(printerDC, uintptr(unsafe.Pointer(&bgRC[0])), pCodeBrush)
+		}
+
+		// Blockquote bar
+		if b.IsQuote {
+			var barRC [16]byte
+			*(*int32)(unsafe.Pointer(&barRC[0])) = padding
+			*(*int32)(unsafe.Pointer(&barRC[4])) = y - int32(2*scaleY)
+			*(*int32)(unsafe.Pointer(&barRC[8])) = padding + int32(3*scaleX)
+			*(*int32)(unsafe.Pointer(&barRC[12])) = y + textH + int32(2*scaleY)
+			fillRect.Call(printerDC, uintptr(unsafe.Pointer(&barRC[0])), pBlueBrush)
+		}
+
+		// Bullet
+		if b.IsBullet {
+			selectObject.Call(printerDC, pFontBody)
+			setTextColor.Call(printerDC, 0x00333333)
+			bullet := utf16From("\u2022")
+			textOutW.Call(printerDC,
+				uintptr(padding+int32(8*scaleX)), uintptr(y+codePad),
+				uintptr(unsafe.Pointer(&bullet[0])), uintptr(len(bullet)-1))
+		}
+
+		setTextColor.Call(printerDC, uintptr(b.Color))
+
+		// Draw text with inline runs
+		if len(b.Runs) > 1 || (len(b.Runs) == 1 && (b.Runs[0].Bold || b.Runs[0].Italic || b.Runs[0].Code)) {
+			curX := padding + indent + codePad
+			curY := y + codePad
+			maxX := int32(pageW) - padding - codePad
+			lineH := int32(0)
+			hSample := utf16From("Ay")
+			var hRC [16]byte
+			*(*int32)(unsafe.Pointer(&hRC[8])) = 10000
+			*(*int32)(unsafe.Pointer(&hRC[12])) = 10000
+			drawTextW.Call(printerDC, uintptr(unsafe.Pointer(&hSample[0])),
+				uintptr(len(hSample)-1), uintptr(unsafe.Pointer(&hRC[0])),
+				DT_CALCRECT|DT_NOPREFIX)
+			lineH = *(*int32)(unsafe.Pointer(&hRC[12]))
+
+			for _, run := range b.Runs {
+				if run.Text == "" {
+					continue
+				}
+				runFont := pFont
+				if run.Bold {
+					runFont = pFontBodyBold
+				} else if run.Italic {
+					runFont = pFontBodyItalic
+				} else if run.Code {
+					runFont = pFontCode
+				}
+				selectObject.Call(printerDC, runFont)
+
+				runTxt := utf16From(run.Text)
+				nChars := len(runTxt) - 1
+				var sz [8]byte
+				getTextExtentPoint32W.Call(printerDC,
+					uintptr(unsafe.Pointer(&runTxt[0])), uintptr(nChars),
+					uintptr(unsafe.Pointer(&sz[0])))
+				runW := *(*int32)(unsafe.Pointer(&sz[0]))
+
+				if curX+runW > maxX && curX > padding+indent+codePad {
+					curX = padding + indent + codePad
+					curY += lineH
+				}
+				textOutW.Call(printerDC, uintptr(curX), uintptr(curY),
+					uintptr(unsafe.Pointer(&runTxt[0])), uintptr(nChars))
+				curX += runW
+				if run.Italic {
+					curX += int32(2 * scaleX)
+				}
+			}
+		} else {
+			var drawRC [16]byte
+			*(*int32)(unsafe.Pointer(&drawRC[0])) = padding + indent + codePad
+			*(*int32)(unsafe.Pointer(&drawRC[4])) = y + codePad
+			*(*int32)(unsafe.Pointer(&drawRC[8])) = int32(pageW) - padding - codePad
+			*(*int32)(unsafe.Pointer(&drawRC[12])) = y + codePad + textH
+			drawTextW.Call(printerDC, uintptr(unsafe.Pointer(&txt[0])),
+				uintptr(len(txt)-1), uintptr(unsafe.Pointer(&drawRC[0])),
+				DT_WORDBREAK|DT_NOPREFIX|DT_EXPANDTABS|DT_EDITCONTROL)
+		}
+
+		selectObject.Call(printerDC, oldF)
+		y += textH + codePad*2
+	}
+
+	endPage.Call(printerDC)
+	endDoc.Call(printerDC)
+}
+
+func makePrintFont(height, weight int32, italic uint32, face string, scale float64) uintptr {
+	scaledH := int32(float64(height) * scale)
+	f, _, _ := createFontW.Call(
+		uintptr(uint32(uint16(scaledH))|0xFFFF0000),
+		0, 0, 0,
+		uintptr(weight),
+		uintptr(italic),
+		0, 0, 0, 0, 0, 0, 0,
+		uintptr(unsafe.Pointer(utf16Ptr(face))),
+	)
+	return f
+}
+
 func main() {
 	runtime.LockOSThread()
 
 	var initialContent string
-	if len(os.Args) > 1 {
-		currentFile = os.Args[1]
-		data, err := os.ReadFile(currentFile)
-		if err == nil {
-			initialContent = string(data)
+	autoPrint := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--print" {
+			autoPrint = true
+		} else if currentFile == "" {
+			currentFile = arg
+			data, err := os.ReadFile(currentFile)
+			if err == nil {
+				initialContent = string(data)
+			}
 		}
 	}
 
@@ -1278,12 +1689,36 @@ func main() {
 
 	setFocus.Call(editorHwnd)
 
-	// Message loop
+	if autoPrint {
+		fmt.Println("[GDI] --print flag detected, auto-printing...")
+		printFormatted()
+		fmt.Println("[GDI] print done, exiting")
+		return
+	}
+
+	// Message loop — intercept Ctrl+S/Ctrl+P before dispatch since
+	// the EDIT control has focus and mainWndProc never sees WM_KEYDOWN.
 	var msgBuf [48]byte
 	for {
 		ret, _, _ := getMessageW.Call(uintptr(unsafe.Pointer(&msgBuf[0])), 0, 0, 0)
 		if ret == 0 || int32(ret) == -1 {
 			break
+		}
+		// MSG struct: hwnd(8), message(4+pad4), wParam(8), lParam(8)
+		msgID := *(*uint32)(unsafe.Pointer(&msgBuf[8]))
+		wParam := *(*uintptr)(unsafe.Pointer(&msgBuf[16]))
+		if msgID == WM_KEYDOWN {
+			state, _, _ := user32.NewProc("GetKeyState").Call(0x11)
+			if int16(state) < 0 {
+				if wParam == VK_S {
+					saveFile()
+					continue
+				}
+				if wParam == VK_P {
+					printFormatted()
+					continue
+				}
+			}
 		}
 		translateMessage.Call(uintptr(unsafe.Pointer(&msgBuf[0])))
 		dispatchMessageW.Call(uintptr(unsafe.Pointer(&msgBuf[0])))

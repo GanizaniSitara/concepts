@@ -259,13 +259,17 @@ func destroySplash(hwnd uintptr) {
 }
 
 func main() {
-	// If a file was passed as argument, load it
 	var initialContent string
-	if len(os.Args) > 1 {
-		currentFile = os.Args[1]
-		data, err := os.ReadFile(currentFile)
-		if err == nil {
-			initialContent = string(data)
+	autoPrint := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--print" {
+			autoPrint = true
+		} else if currentFile == "" {
+			currentFile = arg
+			data, err := os.ReadFile(currentFile)
+			if err == nil {
+				initialContent = string(data)
+			}
 		}
 	}
 
@@ -320,6 +324,14 @@ func main() {
 	})
 
 	w.SetHtml(htmlPage(initialContent, currentFile))
+
+	if autoPrint {
+		// Trigger print after a short delay to let marked.js load
+		w.Dispatch(func() {
+			w.Eval("setTimeout(function(){ window.print(); }, 500);")
+		})
+	}
+
 	w.Run()
 }
 
@@ -417,6 +429,16 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 ::-webkit-scrollbar-track { background:#fff; }
 ::-webkit-scrollbar-thumb { background:#ccc; border-radius:5px; }
 ::-webkit-scrollbar-thumb:hover { background:#aaa; }
+
+/* Print: show only the formatted preview */
+@media print {
+  .toolbar, .editor-pane, .divider { display:none !important; }
+  .container { display:block !important; height:auto !important; }
+  .preview-pane {
+    flex:none !important; width:100% !important; height:auto !important;
+    overflow:visible !important; padding:0 !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -424,7 +446,7 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 <div class="toolbar">
   <span class="filename" id="fname">TinyMD</span>
   <span class="saved" id="saved">Saved!</span>
-  <span class="hint">Ctrl+S save</span>
+  <span class="hint">Ctrl+S save · Ctrl+P print</span>
 </div>
 
 <div class="container">
@@ -529,6 +551,11 @@ document.head.appendChild(sc);
 
   // Ctrl+S to save — shows native Save As dialog if no file was specified
   document.addEventListener('keydown', async function(e) {
+    if (e.ctrlKey && e.key === 'p') {
+      e.preventDefault();
+      window.print();
+      return;
+    }
     if (e.ctrlKey && e.key === 's') {
       e.preventDefault();
       var result = await goSaveFile(editor.value);

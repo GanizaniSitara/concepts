@@ -58,6 +58,15 @@ var (
 
 	// comdlg32
 	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
+	printDlgW        = comdlg32.NewProc("PrintDlgW")
+
+	// gdi32 — printing
+	startDocW     = gdi32.NewProc("StartDocW")
+	endDoc        = gdi32.NewProc("EndDoc")
+	startPage     = gdi32.NewProc("StartPage")
+	endPage       = gdi32.NewProc("EndPage")
+	getDeviceCaps = gdi32.NewProc("GetDeviceCaps")
+	deleteDC      = gdi32.NewProc("DeleteDC")
 )
 
 // Win32 constants
@@ -96,6 +105,19 @@ const (
 	EC_RIGHTMARGIN   = 0x0002
 
 	TIMER_DEBOUNCE = 1
+
+	VK_P = 0x50
+
+	// Printing
+	PD_RETURNDC        = 0x00000100
+	PD_USEDEVMODECOPIESANDCOLLATE = 0x00040000
+	EM_FORMATRANGE     = 0x0439
+	LOGPIXELSX         = 88
+	LOGPIXELSY         = 90
+	HORZRES            = 8
+	VERTRES            = 10
+	PHYSICALOFFSETX    = 112
+	PHYSICALOFFSETY    = 113
 )
 
 // Helpers
@@ -553,6 +575,10 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			saveFile()
 			return 0
 		}
+		if int16(state) < 0 && wParam == VK_P {
+			printFormatted()
+			return 0
+		}
 
 	case WM_SETFOCUS:
 		setFocus.Call(editorHwnd)
@@ -628,15 +654,101 @@ func showSaveDialog(hwnd uintptr) string {
 	return syscall.UTF16ToString(buf)
 }
 
+func printFormatted() {
+	// PRINTDLGW is 120 bytes on 64-bit
+	const pdSize = 120
+	var pd [pdSize]byte
+	*(*uint32)(unsafe.Pointer(&pd[0])) = pdSize
+	*(*uintptr)(unsafe.Pointer(&pd[8])) = mainHwnd
+	*(*uint32)(unsafe.Pointer(&pd[40])) = PD_RETURNDC | PD_USEDEVMODECOPIESANDCOLLATE
+
+	ret, _, _ := printDlgW.Call(uintptr(unsafe.Pointer(&pd[0])))
+	if ret == 0 {
+		return
+	}
+
+	printerDC := *(*uintptr)(unsafe.Pointer(&pd[32])) // hDC
+	if printerDC == 0 {
+		return
+	}
+	defer deleteDC.Call(printerDC)
+
+	// Get printer resolution
+	dpiX, _, _ := getDeviceCaps.Call(printerDC, LOGPIXELSX)
+	dpiY, _, _ := getDeviceCaps.Call(printerDC, LOGPIXELSY)
+	pageW, _, _ := getDeviceCaps.Call(printerDC, HORZRES)
+	pageH, _, _ := getDeviceCaps.Call(printerDC, VERTRES)
+
+	// FORMATRANGE struct layout (64-bit):
+	// hdc(8) + hdcTarget(8) + rc(16: RECT in twips) + rcPage(16: RECT in twips) + CHARRANGE(8: cpMin+cpMax)
+	// Total: 56 bytes
+	// rc and rcPage are in twips (1 twip = 1/1440 inch)
+	rcRight := int32(pageW) * 1440 / int32(dpiX)
+	rcBottom := int32(pageH) * 1440 / int32(dpiY)
+
+	// Get total text length
+	textLen, _, _ := getWindowTextLengthW.Call(previewHwnd)
+
+	// StartDoc
+	docName := utf16From("TinyMD Print")
+	var di [40]byte
+	*(*int32)(unsafe.Pointer(&di[0])) = 40
+	*(*uintptr)(unsafe.Pointer(&di[8])) = uintptr(unsafe.Pointer(&docName[0]))
+	r, _, _ := startDocW.Call(printerDC, uintptr(unsafe.Pointer(&di[0])))
+	if int32(r) <= 0 {
+		return
+	}
+
+	cpMin := int32(0)
+	for cpMin < int32(textLen) {
+		startPage.Call(printerDC)
+
+		var fr [56]byte
+		*(*uintptr)(unsafe.Pointer(&fr[0])) = printerDC  // hdc
+		*(*uintptr)(unsafe.Pointer(&fr[8])) = printerDC  // hdcTarget
+		// rc (rendering area)
+		*(*int32)(unsafe.Pointer(&fr[16])) = 0        // left
+		*(*int32)(unsafe.Pointer(&fr[20])) = 0        // top
+		*(*int32)(unsafe.Pointer(&fr[24])) = rcRight   // right
+		*(*int32)(unsafe.Pointer(&fr[28])) = rcBottom  // bottom
+		// rcPage (physical page)
+		*(*int32)(unsafe.Pointer(&fr[32])) = 0
+		*(*int32)(unsafe.Pointer(&fr[36])) = 0
+		*(*int32)(unsafe.Pointer(&fr[40])) = rcRight
+		*(*int32)(unsafe.Pointer(&fr[44])) = rcBottom
+		// CHARRANGE
+		*(*int32)(unsafe.Pointer(&fr[48])) = cpMin
+		*(*int32)(unsafe.Pointer(&fr[52])) = int32(textLen)
+
+		result, _, _ := sendMessageW.Call(previewHwnd, EM_FORMATRANGE, 1, uintptr(unsafe.Pointer(&fr[0])))
+		endPage.Call(printerDC)
+
+		if int32(result) <= cpMin {
+			break // no progress
+		}
+		cpMin = int32(result)
+	}
+
+	// Clear EM_FORMATRANGE cache
+	sendMessageW.Call(previewHwnd, EM_FORMATRANGE, 0, 0)
+
+	endDoc.Call(printerDC)
+}
+
 func main() {
 	runtime.LockOSThread()
 
 	var initialContent string
-	if len(os.Args) > 1 {
-		currentFile = os.Args[1]
-		data, err := os.ReadFile(currentFile)
-		if err == nil {
-			initialContent = string(data)
+	autoPrint := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--print" {
+			autoPrint = true
+		} else if currentFile == "" {
+			currentFile = arg
+			data, err := os.ReadFile(currentFile)
+			if err == nil {
+				initialContent = string(data)
+			}
 		}
 	}
 
@@ -689,12 +801,35 @@ func main() {
 
 	setFocus.Call(editorHwnd)
 
-	// Message loop
+	if autoPrint {
+		fmt.Println("[RichEdit] --print flag detected, auto-printing...")
+		printFormatted()
+		fmt.Println("[RichEdit] print done, exiting")
+		return
+	}
+
+	// Message loop — intercept Ctrl+S/Ctrl+P before dispatch since
+	// the EDIT control has focus and mainWndProc never sees WM_KEYDOWN.
 	var msgBuf [48]byte
 	for {
 		ret, _, _ := getMessageW.Call(uintptr(unsafe.Pointer(&msgBuf[0])), 0, 0, 0)
 		if ret == 0 || int32(ret) == -1 {
 			break
+		}
+		msgID := *(*uint32)(unsafe.Pointer(&msgBuf[8]))
+		wParam := *(*uintptr)(unsafe.Pointer(&msgBuf[16]))
+		if msgID == WM_KEYDOWN {
+			state, _, _ := getKeyState.Call(0x11)
+			if int16(state) < 0 {
+				if wParam == VK_S {
+					saveFile()
+					continue
+				}
+				if wParam == VK_P {
+					printFormatted()
+					continue
+				}
+			}
 		}
 		translateMessage.Call(uintptr(unsafe.Pointer(&msgBuf[0])))
 		dispatchMessageW.Call(uintptr(unsafe.Pointer(&msgBuf[0])))
