@@ -1,4 +1,4 @@
-# Color Scheme 1 — Moss Tidal (light)
+# Color Scheme 2 — Moss Tidal (light)
 
 Base theme with the full corporate palette. Schemes 2 and 3 layer on top of this.
 

@@ -1,4 +1,4 @@
-# Color Scheme 3 — Orchid Sunset (light)
+# Color Scheme 5 — Orchid Sunset (light)
 
 Deep Purple primary with Pink accent, Amber secondary, Cyan alt-action. Extends the Moss Tidal base palette.
 

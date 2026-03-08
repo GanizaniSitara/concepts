@@ -1,4 +1,4 @@
-# Color Scheme 6 — Cobalt Reef (light)
+# Color Scheme 1 — Cobalt Reef (light)
 
 Light theme built on deep blues, cyans and teals. Large palette with extensive pastel tints.
 

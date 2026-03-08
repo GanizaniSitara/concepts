@@ -1,4 +1,4 @@
-# Color Scheme 5 — Nebula Dark (dark)
+# Color Scheme 4 — Nebula Dark (dark)
 
 Dark theme using the Nebula colour family. Deep navy backgrounds designed for data-dense dashboards.
 

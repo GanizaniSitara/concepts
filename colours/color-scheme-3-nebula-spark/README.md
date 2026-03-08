@@ -1,4 +1,4 @@
-# Color Scheme 4 — Nebula Spark (light)
+# Color Scheme 3 — Nebula Spark (light)
 
 Light theme using the Nebula colour family. Deep blues and electric blue accent on a white background.
 

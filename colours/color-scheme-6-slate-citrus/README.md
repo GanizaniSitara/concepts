@@ -1,4 +1,4 @@
-# Color Scheme 2 — Slate Citrus (light)
+# Color Scheme 6 — Slate Citrus (light)
 
 Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action. Extends the Moss Tidal base palette.
 
