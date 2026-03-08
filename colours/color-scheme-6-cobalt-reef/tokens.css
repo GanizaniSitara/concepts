@@ -1,0 +1,54 @@
+/* tokens.css — Cobalt Reef
+   Light theme with deep blues, cyans, and teals.
+*/
+:root {
+  /* Core palette */
+  --c-dark-blue: #00385D;
+  --c-cyan: #00AEEF;
+  --c-light-blue: #0076B6;
+  --c-active-blue: #006DE3;
+  --c-dark-grey: #515151;
+  --c-bright-blue: #001276;
+  --c-light-teal: #007481;
+  --c-bright-purple: #5C1E5B;
+  --c-electric-violet: #7A0FF9;
+  --c-teal: #006666;
+  --c-dark-purple: #4C3D6C;
+  --c-dark-claret: #752157;
+  --c-green: #3F7F37;
+  --c-orange: #FFCB05;
+  --c-bright-claret: #C7273A;
+
+  /* Extended tints & pastels */
+  --c-yellow: #FFFF98;
+  --c-lime: #C3F5BA;
+  --c-bright-mint: #AFFDFD;
+  --c-stone: #E8E8C9;
+  --c-bright-yellow: #FFFF00;
+  --c-light-purple: #E1C0E2;
+  --c-light-grey: #D9D9D9;
+  --c-light-orange: #FFE05A;
+  --c-mint: #CDF5E8;
+  --c-light-claret: #FFC9C9;
+  --c-dark-teal: #004750;
+  --c-electric-blue: #0000FF;
+  --c-black: #000000;
+  --c-white: #FFFFFF;
+
+  /* Backgrounds & text */
+  --color-bg: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-text: var(--c-black);
+
+  /* Semantic — theme identity */
+  --color-primary: var(--c-dark-blue);
+  --color-accent: var(--c-cyan);
+  --color-secondary: var(--c-light-blue);
+  --color-action-alt: var(--c-active-blue);
+  --color-muted: var(--c-dark-grey);
+
+  /* Status */
+  --color-success: var(--c-green);
+  --color-warning: var(--c-orange);
+  --color-danger: var(--c-bright-claret);
+}
