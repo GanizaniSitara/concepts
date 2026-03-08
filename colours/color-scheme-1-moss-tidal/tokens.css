@@ -1,18 +1,16 @@
-/* sapphire-dusk-tokens.css
-   Minimal design tokens derived from the provided PPT screenshots.
-   No brand names; just reusable variables.
+/* tokens.css — Moss Tidal
+   Full design-token set: colours, typography, spacing.
 */
 :root {
   /* Typography */
   --font-sans: Arial, Helvetica, sans-serif;
 
-  /* Font sizes (roughly mapped from PPT: 20/18/16/14/12/10.5) */
-  --fs-900: 20px;   /* page/section heading */
-  --fs-800: 18px;   /* subheading */
-  --fs-700: 16px;   /* body */
-  --fs-600: 14px;   /* bullet lvl 2 */
-  --fs-500: 12px;   /* bullet lvl 3 */
-  --fs-400: 10.5px; /* bullet lvl 4 */
+  --fs-900: 20px;
+  --fs-800: 18px;
+  --fs-700: 16px;
+  --fs-600: 14px;
+  --fs-500: 12px;
+  --fs-400: 10.5px;
 
   --fw-regular: 400;
   --fw-bold: 700;
@@ -20,7 +18,7 @@
   --lh-tight: 1.15;
   --lh-normal: 1.45;
 
-  /* Spacing scale */
+  /* Spacing */
   --sp-0: 0;
   --sp-1: 4px;
   --sp-2: 8px;
@@ -33,21 +31,21 @@
   --radius-1: 4px;
   --radius-2: 8px;
 
-  /* Core palette (RGB from PPT → hex) */
+  /* Core palette */
   --c-white: #E1E1E1;
   --c-black: #000000;
 
   --c-navy: #022D5E;
   --c-gray: #53565A;
 
-  --c-peacock: #005587;
+  --c-blue: #005587;
   --c-olive: #789D4A;
   --c-wine: #621244;
   --c-cerulean: #008BCD;
   --c-teal: #00897B;
   --c-denim: #36749D;
 
-  /* Extra / custom */
+  /* Extended palette */
   --c-aqua: #00BFB3;
   --c-plum: #80276C;
   --c-forest: #215D25;
@@ -58,15 +56,25 @@
   --c-yellow: #FFD100;
   --c-green: #009639;
 
-  /* Semantic mapping (use these in apps; swap mapping later if needed) */
-  --color-bg: #ffffff;
-  --color-surface: #ffffff;
-  --color-text: #111111;
+  /* Backgrounds & text */
+  --color-bg: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-text: #000000;
+
+  /* Semantic — theme identity */
+  --color-primary: var(--c-navy);
+  --color-accent: var(--c-blue);
+  --color-secondary: var(--c-olive);
+  --color-action-alt: var(--c-teal);
   --color-muted: var(--c-gray);
 
-  --color-primary: var(--c-navy);
-  --color-accent: var(--c-peacock);
+  /* Semantic — extended */
+  --color-info: var(--c-cerulean);
+  --color-utility: var(--c-denim);
+  --color-emphasis: var(--c-aqua);
+  --color-alt: var(--c-plum);
 
+  /* Status */
   --color-success: var(--c-green);
   --color-warning: var(--c-yellow);
   --color-danger: var(--c-red);

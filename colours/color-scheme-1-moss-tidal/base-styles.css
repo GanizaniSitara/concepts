@@ -1,6 +1,6 @@
-/* sapphire-dusk-base.css
+/* base-styles.css
    Minimal, framework-agnostic base styling.
-   Include AFTER sapphire-dusk-tokens.css.
+   Include AFTER tokens.css.
 */
 
 * { box-sizing: border-box; }
@@ -15,7 +15,7 @@ body {
   color: var(--color-text);
 }
 
-/* Headings (PPT: 20pt bold in navy; subhead 18pt in gray) */
+/* Headings */
 h1, h2, h3 {
   margin: 0 0 var(--sp-3);
   font-weight: var(--fw-bold);

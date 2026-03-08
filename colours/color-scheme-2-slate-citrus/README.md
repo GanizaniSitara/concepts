@@ -1,18 +1,18 @@
-# Color Scheme 3 — Slate Citrus (light)
+# Color Scheme 2 — Slate Citrus (light)
 
-Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action. Extends the Sapphire Dusk base palette.
+Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action. Extends the Moss Tidal base palette.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `theme.css` | Theme colour overrides (layer on top of sapphire-dusk) |
+| `theme.css` | Theme colour overrides (layer on top of Moss Tidal) |
 
 ## Usage
 
 ```html
-<link rel="stylesheet" href="../color-scheme-1-sapphire-dusk/sapphire-dusk-tokens.css">
-<link rel="stylesheet" href="../color-scheme-1-sapphire-dusk/sapphire-dusk-base.css">
+<link rel="stylesheet" href="../color-scheme-1-moss-tidal/tokens.css">
+<link rel="stylesheet" href="../color-scheme-1-moss-tidal/base-styles.css">
 <link rel="stylesheet" href="theme.css">
 ```
 
@@ -30,6 +30,6 @@ Blue Grey primary, Cyan accent, Orange secondary, Amber alt-action. Extends the 
 | `--color-secondary` | `#F57C00` | ![](https://img.shields.io/badge/-%23F57C00-F57C00?style=flat-square) |
 | `--color-action-alt` | `#FFA000` | ![](https://img.shields.io/badge/-%23FFA000-FFA000?style=flat-square) |
 
-## Inherited from Sapphire Dusk
+## Inherited from Moss Tidal
 
-This scheme layers on top of [Scheme 1 — Sapphire Dusk](../color-scheme-1-sapphire-dusk/), inheriting its full palette of secondary, tertiary, and highlight colours. See that README for the complete set.
+This scheme layers on top of [Scheme 1 — Moss Tidal](../color-scheme-1-moss-tidal/), inheriting its full palette of secondary, tertiary, and highlight colours. See that README for the complete set.
