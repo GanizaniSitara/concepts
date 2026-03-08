@@ -1,32 +1,49 @@
+/* tokens.css — Nebula Dark
+   Dark theme using the Nebula colour family.
+*/
 :root {
-  /* Backgrounds */
-  --color-bg-deep: #1A223F;          /* rgb(26, 34, 63) — page background */
-  --color-bg-surface: #293150;       /* rgb(41, 49, 79) — cards, panels */
-  --color-bg-elevated: #334168;      /* hover states, dropdowns */
-  
-  /* Text */
-  --color-text-primary: #F0F2F8;     /* headings, primary content */
-  --color-text-secondary: #BDC8F0;   /* rgb(189, 200, 240) — labels, axis text */
-  --color-text-muted: #8892B0;       /* timestamps, metadata */
-  
-  /* Accent */
-  --color-accent: #2196F3;           /* rgb(33, 150, 243) — links, primary actions */
-  --color-accent-muted: rgba(33, 150, 243, 0.2);  /* selections, hover bg */
-  
+  /* Core palette */
+  --c-deep-navy: #1A223F;
+  --c-surface-blue: #293150;
+  --c-slate-blue: #334168;
+  --c-muted-blue: #8892B0;
+  --c-electric-blue: #2196F3;
+  --c-teal: #00BFA5;
+  --c-purple: #AB47BC;
+  --c-amber: #FF9800;
+  --c-yellow: #FFEE58;
+  --c-red: #EF5350;
+  --c-green: #66BB6A;
+  --c-warm-amber: #FFA726;
+  --c-light-text: #F0F2F8;
+  --c-mid-text: #BDC8F0;
+
+  /* Backgrounds & text */
+  --color-bg: var(--c-deep-navy);
+  --color-surface: var(--c-surface-blue);
+  --color-text: var(--c-light-text);
+
+  /* Semantic — theme identity */
+  --color-primary: var(--c-electric-blue);
+  --color-accent: var(--c-teal);
+  --color-secondary: var(--c-purple);
+  --color-action-alt: var(--c-amber);
+  --color-muted: var(--c-muted-blue);
+
   /* Status */
-  --color-positive: #66BB6A;         /* gains, up indicators */
-  --color-negative: #EF5350;         /* losses, down indicators */
-  --color-warning: #FFA726;          /* alerts, caution */
-  
+  --color-success: var(--c-green);
+  --color-warning: var(--c-warm-amber);
+  --color-danger: var(--c-red);
+
   /* Borders */
   --color-border: rgba(189, 200, 240, 0.12);
   --color-border-strong: rgba(189, 200, 240, 0.25);
-  
-  /* Chart series (ordered for visual distinction) */
-  --color-chart-1: #2196F3;          /* blue */
-  --color-chart-2: #00BFA5;          /* teal */
-  --color-chart-3: #FF9800;          /* amber */
-  --color-chart-4: #AB47BC;          /* purple */
-  --color-chart-5: #FFEE58;          /* yellow */
-  --color-chart-6: #EF5350;          /* red */
+
+  /* Chart series */
+  --color-chart-1: var(--c-electric-blue);
+  --color-chart-2: var(--c-teal);
+  --color-chart-3: var(--c-amber);
+  --color-chart-4: var(--c-purple);
+  --color-chart-5: var(--c-yellow);
+  --color-chart-6: var(--c-red);
 }
