@@ -8,4 +8,8 @@
   --color-accent: #0097A7;
   --color-secondary: #F57C00;
   --color-action-alt: #FFA000;
+  --color-muted: #78909C;
+  --color-success: #43A047;
+  --color-warning: #FDD835;
+  --color-danger: #E53935;
 }
