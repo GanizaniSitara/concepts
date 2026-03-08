@@ -7,7 +7,7 @@ Four framework-agnostic CSS colour schemes.
 | 1 | Moss Tidal | Light | [color-scheme-1-moss-tidal](color-scheme-1-moss-tidal/) |
 | 2 | Slate Citrus | Light | [color-scheme-2-slate-citrus](color-scheme-2-slate-citrus/) |
 | 3 | Orchid Sunset | Light | [color-scheme-3-orchid-sunset](color-scheme-3-orchid-sunset/) |
-| 4 | Nebula Spark | Dark | [color-scheme-4-nebula-spark](color-scheme-4-nebula-spark/) |
+| 4 | Nebula Dark | Dark | [color-scheme-4-nebula-dark](color-scheme-4-nebula-dark/) |
 
 Schemes 2 and 3 are overlay themes that layer on top of Scheme 1 (Moss Tidal), inheriting its full extended palette.
 
@@ -15,7 +15,7 @@ Schemes 2 and 3 are overlay themes that layer on top of Scheme 1 (Moss Tidal), i
 
 ## Theme identity colours
 
-| Role | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Spark |
+| Role | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Dark |
 |---|---|---|---|---|
 | Primary | ![](https://img.shields.io/badge/-%23022D5E-022D5E?style=flat-square) | ![](https://img.shields.io/badge/-%23455A64-455A64?style=flat-square) | ![](https://img.shields.io/badge/-%23512DA8-512DA8?style=flat-square) | |
 | Accent | ![](https://img.shields.io/badge/-%23005587-005587?style=flat-square) | ![](https://img.shields.io/badge/-%230097A7-0097A7?style=flat-square) | ![](https://img.shields.io/badge/-%23F50057-F50057?style=flat-square) | ![](https://img.shields.io/badge/-%232196F3-2196F3?style=flat-square) |
@@ -29,7 +29,7 @@ Schemes 2 and 3 are overlay themes that layer on top of Scheme 1 (Moss Tidal), i
 
 Defined in Scheme 1 (Moss Tidal). Inherited by Schemes 2 and 3.
 
-| Colour | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Spark |
+| Colour | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Dark |
 |---|---|---|---|---|
 | Navy | ![](https://img.shields.io/badge/-%23022D5E-022D5E?style=flat-square) | \* | \* | |
 | Blue | ![](https://img.shields.io/badge/-%23005587-005587?style=flat-square) | \* | \* | |
@@ -50,7 +50,7 @@ Defined in Scheme 1 (Moss Tidal). Inherited by Schemes 2 and 3.
 
 ## Status / highlight colours
 
-| Role | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Spark |
+| Role | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Dark |
 |---|---|---|---|---|
 | Success / Positive | ![](https://img.shields.io/badge/-%23009639-009639?style=flat-square) | \* | \* | ![](https://img.shields.io/badge/-%2366BB6A-66BB6A?style=flat-square) |
 | Warning | ![](https://img.shields.io/badge/-%23FFD100-FFD100?style=flat-square) | \* | \* | ![](https://img.shields.io/badge/-%23FFA726-FFA726?style=flat-square) |
@@ -60,9 +60,9 @@ Defined in Scheme 1 (Moss Tidal). Inherited by Schemes 2 and 3.
 
 ---
 
-## Dark theme tokens (Scheme 4 — Nebula Spark)
+## Dark theme tokens (Scheme 4 — Nebula Dark)
 
-| Role | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Spark |
+| Role | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Dark |
 |---|---|---|---|---|
 | Bg Deep | | | | ![](https://img.shields.io/badge/-%231A223F-1A223F?style=flat-square) |
 | Bg Surface | | | | ![](https://img.shields.io/badge/-%23293150-293150?style=flat-square) |
@@ -73,9 +73,9 @@ Defined in Scheme 1 (Moss Tidal). Inherited by Schemes 2 and 3.
 
 ---
 
-## Chart series (Scheme 4 — Nebula Spark)
+## Chart series (Scheme 4 — Nebula Dark)
 
-| # | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Spark |
+| # | 1. Moss Tidal | 2. Slate Citrus | 3. Orchid Sunset | 4. Nebula Dark |
 |---|---|---|---|---|
 | 1 | | | | ![](https://img.shields.io/badge/-%232196F3-2196F3?style=flat-square) |
 | 2 | | | | ![](https://img.shields.io/badge/-%2300BFA5-00BFA5?style=flat-square) |

@@ -1,4 +1,4 @@
-# Color Scheme 4 — Nebula Spark (dark)
+# Color Scheme 4 — Nebula Dark (dark)
 
 Dark theme derived from a purple/deep-blue direction. Designed for data-dense financial dashboards and analytics portals.
 
