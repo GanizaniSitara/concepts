@@ -8,8 +8,8 @@
   --c-slate-blue: #334168;
   --c-muted-blue: #8892B0;
   --c-electric-blue: #2196F3;
-  --c-teal: #00BFA5;
-  --c-purple: #AB47BC;
+  --c-light-text: #F0F2F8;
+  --c-mid-text: #BDC8F0;
   --c-amber: #FF9800;
   --c-yellow: #FFEE58;
   --c-red: #EF5350;
@@ -24,8 +24,8 @@
   /* Semantic — theme identity */
   --color-primary: var(--c-surface-blue);
   --color-accent: var(--c-electric-blue);
-  --color-secondary: var(--c-purple);
-  --color-action-alt: var(--c-teal);
+  --color-secondary: var(--c-light-text);
+  --color-action-alt: var(--c-mid-text);
   --color-muted: var(--c-muted-blue);
 
   /* Status */

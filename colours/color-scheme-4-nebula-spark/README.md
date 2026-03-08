@@ -1,6 +1,6 @@
 # Color Scheme 4 — Nebula Spark (light)
 
-Light theme using the Nebula colour family. Electric blue accent with purple and teal supporting colours on a white background.
+Light theme using the Nebula colour family. Deep blues and electric blue accent on a white background.
 
 ## Files
 
@@ -27,8 +27,8 @@ Light theme using the Nebula colour family. Electric blue accent with purple and
 
 | Token | Hex | Preview |
 |---|---|---|
-| `--c-purple` | `#AB47BC` | ![](https://img.shields.io/badge/-%23AB47BC-AB47BC?style=flat-square) |
-| `--c-teal` | `#00BFA5` | ![](https://img.shields.io/badge/-%2300BFA5-00BFA5?style=flat-square) |
+| `--c-light-text` | `#F0F2F8` | ![](https://img.shields.io/badge/-%23F0F2F8-F0F2F8?style=flat-square) |
+| `--c-mid-text` | `#BDC8F0` | ![](https://img.shields.io/badge/-%23BDC8F0-BDC8F0?style=flat-square) |
 | `--c-amber` | `#FF9800` | ![](https://img.shields.io/badge/-%23FF9800-FF9800?style=flat-square) |
 
 ## Tertiary colours
@@ -53,8 +53,8 @@ Light theme using the Nebula colour family. Electric blue accent with purple and
 |---|---|---|---|
 | `--color-primary` | Surface Blue | `#293150` | ![](https://img.shields.io/badge/-%23293150-293150?style=flat-square) |
 | `--color-accent` | Electric Blue | `#2196F3` | ![](https://img.shields.io/badge/-%232196F3-2196F3?style=flat-square) |
-| `--color-secondary` | Purple | `#AB47BC` | ![](https://img.shields.io/badge/-%23AB47BC-AB47BC?style=flat-square) |
-| `--color-action-alt` | Teal | `#00BFA5` | ![](https://img.shields.io/badge/-%2300BFA5-00BFA5?style=flat-square) |
+| `--color-secondary` | Light Text | `#F0F2F8` | ![](https://img.shields.io/badge/-%23F0F2F8-F0F2F8?style=flat-square) |
+| `--color-action-alt` | Mid Text | `#BDC8F0` | ![](https://img.shields.io/badge/-%23BDC8F0-BDC8F0?style=flat-square) |
 | `--color-muted` | Muted Blue | `#8892B0` | ![](https://img.shields.io/badge/-%238892B0-8892B0?style=flat-square) |
 | `--color-success` | Green | `#66BB6A` | ![](https://img.shields.io/badge/-%2366BB6A-66BB6A?style=flat-square) |
 | `--color-warning` | Warm Amber | `#FFA726` | ![](https://img.shields.io/badge/-%23FFA726-FFA726?style=flat-square) |

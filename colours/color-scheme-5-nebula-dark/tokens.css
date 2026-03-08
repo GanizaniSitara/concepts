@@ -24,11 +24,11 @@
   --color-text: var(--c-light-text);
 
   /* Semantic — theme identity */
-  --color-primary: var(--c-electric-blue);
-  --color-accent: var(--c-teal);
-  --color-secondary: var(--c-purple);
-  --color-action-alt: var(--c-amber);
-  --color-muted: var(--c-muted-blue);
+  --color-primary: var(--c-deep-navy);
+  --color-accent: var(--c-surface-blue);
+  --color-secondary: var(--c-slate-blue);
+  --color-action-alt: var(--c-electric-blue);
+  --color-muted: var(--c-teal);
 
   /* Status */
   --color-success: var(--c-green);
