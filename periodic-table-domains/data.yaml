@@ -1,0 +1,132 @@
+meta:
+  title: "Data Domains"
+  stem: "data-domains-overview"
+  y_label: "Data Domains"
+  x_label: "Categories"
+
+layout:
+  tile_width: 80
+  tile_height: 80
+  gap: 6
+  category_gap: 0
+  margin_left: 55
+  margin_top: 15
+  margin_bottom: 55
+  font_family: "Arial, Helvetica, sans-serif"
+  sidebar_width: 40
+  bottom_bar_height: 35
+  bar_color: "#53565A"
+
+default_scheme: cobalt-reef
+
+schemes:
+  cobalt-reef:
+    wine:    "#752157"   # dark_claret
+    gray:    "#515151"   # dark_grey
+    denim:   "#00385D"   # dark_blue
+    green:   "#007481"   # light_teal
+    plum:    "#5C1E5B"   # bright_purple
+    orange:  "#0076B6"   # light_blue
+    teal:    "#006666"   # teal
+    blue:    "#001276"   # bright_blue
+    navy:    "#4C3D6C"   # dark_purple
+
+  secondary:
+    wine:    "#971827"
+    gray:    "#282828"
+    denim:   "#676767"
+    green:   "#EF8D22"
+    plum:    "#20630E"
+    orange:  "#83066A"
+    teal:    "#024C79"
+    blue:    "#318070"
+    navy:    "#2F9F67"
+
+categories:
+  - name: "Reference"
+    color: wine
+    tiles:
+      - { code: "XPRC", desc: "External Pricing",          col: 1, row: 0 }
+      - { code: "ASST", desc: "Alternative Asset Classes",  col: 0, row: 1 }
+      - { code: "MSTR", desc: "Exchange Master",            col: 1, row: 1 }
+      - { code: "BNCM", desc: "Index & Benchmark",          col: 2, row: 1 }
+      - { code: "INST", desc: "Traditional Instruments",    col: 0, row: 2 }
+      - { code: "CLSF", desc: "Industry & Sector Class.",   col: 1, row: 2 }
+      - { code: "CLDR", desc: "Calendars & Date-Time",      col: 2, row: 2 }
+      - { code: "ISSR", desc: "Issuers",                    col: 0, row: 3 }
+      - { code: "RGON", desc: "Geographies",                col: 1, row: 3 }
+      - { code: "CURR", desc: "Currency Codes",             col: 2, row: 3 }
+
+  - name: "Perf & Risk"
+    color: gray
+    tiles:
+      - { code: "ATTB", desc: "Attribution Factors",        col: 0, row: 0 }
+      - { code: "RSKM", desc: "Risk Models",                col: 1, row: 0 }
+      - { code: "ANLP", desc: "Analytics Pipeline",         col: 0, row: 1 }
+      - { code: "PNLS", desc: "Profit & Loss Series",       col: 1, row: 1 }
+      - { code: "EXPO", desc: "Exposure Snapshots",         col: 0, row: 2 }
+      - { code: "SCEN", desc: "Scenario Definitions",       col: 1, row: 2 }
+      - { code: "VARM", desc: "Value-at-Risk Metrics",      col: 0, row: 3 }
+
+  - name: "Client"
+    color: denim
+    tiles:
+      - { code: "PRTY", desc: "Party & Legal Entity",       col: 0, row: 1 }
+      - { code: "ACRL", desc: "Access & Roles",             col: 1, row: 1 }
+      - { code: "KYCD", desc: "KYC Documents",              col: 0, row: 2 }
+      - { code: "CNTS", desc: "Contacts & Comms",           col: 1, row: 2 }
+      - { code: "SGMT", desc: "Client Segments",            col: 0, row: 3 }
+
+  - name: "Accounting"
+    color: green
+    tiles:
+      - { code: "GLAC", desc: "General Ledger Accts",       col: 0, row: 0 }
+      - { code: "JRNL", desc: "Journal Entries",            col: 1, row: 0 }
+      - { code: "SBLG", desc: "Sub-Ledger Balances",        col: 0, row: 1 }
+      - { code: "TAXR", desc: "Tax Records",                col: 1, row: 1 }
+      - { code: "RCON", desc: "Reconciliation Sets",        col: 0, row: 2 }
+      - { code: "FXRV", desc: "FX Revaluation",             col: 1, row: 2 }
+
+  - name: "Account"
+    color: plum
+    tiles:
+      - { code: "DPST", desc: "Deposit Accounts",           col: 0, row: 0 }
+      - { code: "LNAC", desc: "Loan Accounts",              col: 0, row: 1 }
+      - { code: "CSTD", desc: "Custody Accounts",           col: 0, row: 2 }
+      - { code: "MRGN", desc: "Margin Accounts",            col: 0, row: 3 }
+
+  - name: "Transaction"
+    color: orange
+    tiles:
+      - { code: "TRAD", desc: "Trade Lifecycle",            col: 0, row: 0 }
+      - { code: "CSHF", desc: "Cash Flows",                 col: 1, row: 0 }
+      - { code: "STLM", desc: "Settlement Instr.",          col: 0, row: 1 }
+      - { code: "CPAC", desc: "Corporate Actions",          col: 1, row: 1 }
+      - { code: "CLRG", desc: "Clearing Records",           col: 0, row: 2 }
+      - { code: "FEES", desc: "Fees & Charges",             col: 1, row: 2 }
+      - { code: "ALLC", desc: "Allocations",                col: 0, row: 3 }
+      - { code: "CNFM", desc: "Confirmations",              col: 1, row: 3 }
+
+  - name: "Market"
+    color: teal
+    tiles:
+      - { code: "MKTD", desc: "Market Data Feeds",          col: 0, row: 1 }
+      - { code: "YCRV", desc: "Yield Curves",               col: 0, row: 2 }
+      - { code: "VLSF", desc: "Vol Surfaces",               col: 0, row: 3 }
+
+  - name: "Product"
+    color: blue
+    tiles:
+      - { code: "EQTY", desc: "Equity Products",            col: 0, row: 0 }
+      - { code: "FIPR", desc: "Fixed Income Prod.",          col: 0, row: 1 }
+      - { code: "FXPR", desc: "FX Products",                col: 0, row: 2 }
+      - { code: "DRIV", desc: "Derivatives",                col: 0, row: 3 }
+
+  - name: "Vendor"
+    color: navy
+    tiles:
+      - { code: "BBGF", desc: "Bloomberg Feeds",            col: 0, row: 1 }
+      - { code: "RTRM", desc: "Reuters Terminal",           col: 1, row: 1 }
+      - { code: "MRKW", desc: "MarkitWire Conn.",           col: 0, row: 2 }
+      - { code: "DTCC", desc: "DTCC Gateway",               col: 1, row: 2 }
+      - { code: "SWFT", desc: "SWIFT Network",              col: 0, row: 3 }
