@@ -1,0 +1,111 @@
+<#
+.SYNOPSIS
+    Watches applied-layouts.json and re-injects dual-serial entries whenever
+    FancyZones overwrites them.
+
+.DESCRIPTION
+    FancyZones Editor writes applied-layouts.json using serial 32500123 for
+    both monitors, but the FZ runtime reads serial 38804122 from WMI for
+    UID4355. This script watches for changes and ensures entries exist for
+    both serials, preventing ghost entries with wrong layout types.
+
+    Run as a background job from startup.ps1 or Task Scheduler.
+
+.EXAMPLE
+    powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File fz-layout-guard.ps1
+#>
+
+$fzDir       = "$env:LOCALAPPDATA\Microsoft\PowerToys\FancyZones"
+$appliedFile = "$fzDir\applied-layouts.json"
+$landscape2x2 = '{41A1F264-2A69-493C-AE7B-2DFFEC94E167}'
+$portrait3x1  = '{83AFA76C-6527-4389-B73D-6FE76858105E}'
+$editorSerial = '32500123'
+$wmiSerial    = '38804122'
+
+# Debounce: skip re-processing if we just wrote the file ourselves
+$script:lastSelfWrite = [DateTime]::MinValue
+$debounceMs = 2000
+
+function Get-TS { return Get-Date -Format 'HH:mm:ss' }
+
+function New-FzEntry($instance, $serial, $monNum, $uuid, $zones) {
+    return '{"device":{"monitor":"ENC2384","monitor-instance":"' + $instance + '","serial-number":"' + $serial + '","monitor-number":' + $monNum + ',"virtual-desktop":"{00000000-0000-0000-0000-000000000000}"},"applied-layout":{"uuid":"' + $uuid + '","type":"custom","show-spacing":true,"spacing":5,"zone-count":' + $zones + ',"sensitivity-radius":20}}'
+}
+
+function Get-CorrectAppliedLayouts {
+    # Exactly ONE entry per (serial, monitor-number) — FZ ignores monitor-instance
+    # in the lookup, so duplicates with different UIDs cause first-match-wins bugs.
+    #
+    # WMI serial (38804122): mon 1 = landscape, mon 2 = portrait
+    # Editor serial (32500123): mon 1 = portrait, mon 2 = landscape
+    $e = @(
+        (New-FzEntry '5&121fea07&0&UID4355' $wmiSerial    1 $landscape2x2 4)
+        (New-FzEntry '5&121fea07&0&UID4353' $wmiSerial    2 $portrait3x1  3)
+        (New-FzEntry '5&121fea07&0&UID4353' $editorSerial 1 $portrait3x1  3)
+        (New-FzEntry '5&121fea07&0&UID4355' $editorSerial 2 $landscape2x2 4)
+    )
+    return '{"applied-layouts":[' + ($e -join ',') + ']}'
+}
+
+function Repair-AppliedLayouts {
+    if (-not (Test-Path $appliedFile)) { return }
+
+    # Debounce: if we wrote the file less than 2s ago, skip
+    if (([DateTime]::Now - $script:lastSelfWrite).TotalMilliseconds -lt $debounceMs) { return }
+
+    try {
+        $raw = [System.IO.File]::ReadAllText($appliedFile)
+
+        # Check if the WMI serial entries with correct custom UUIDs are present
+        $hasWmiPortrait  = $raw -match ('"' + $wmiSerial + '"') -and $raw -match ($portrait3x1)
+        $hasWmiLandscape = $raw -match ('"' + $wmiSerial + '"') -and $raw -match ($landscape2x2)
+
+        # More precise: check if there's a 38804122 entry with type "custom"
+        # If serial 38804122 appears with type "rows" or "priority-grid", that's the ghost
+        $needsFix = $false
+        if ($raw -notmatch [regex]::Escape($wmiSerial)) {
+            # No WMI serial entries at all — need to add them
+            $needsFix = $true
+        } elseif ($raw -match '"38804122".*?"type"\s*:\s*"(rows|columns|priority-grid|grid|focus)"') {
+            # Ghost entry with wrong layout type
+            $needsFix = $true
+        }
+
+        if ($needsFix) {
+            $correctJson = Get-CorrectAppliedLayouts
+            [System.IO.File]::WriteAllText($appliedFile, $correctJson, [System.Text.UTF8Encoding]::new($false))
+            $script:lastSelfWrite = [DateTime]::Now
+            Write-Host "[$( Get-TS )] Repaired applied-layouts.json (re-injected $wmiSerial entries)"
+        }
+    } catch {
+        # File may be locked by FZ — retry on next event
+        Write-Host "[$( Get-TS )] Skipped: $($_.Exception.Message)"
+    }
+}
+
+# --- FileSystemWatcher setup ---
+$watcher = [System.IO.FileSystemWatcher]::new($fzDir, 'applied-layouts.json')
+$watcher.NotifyFilter = [System.IO.NotifyFilters]::LastWrite
+$watcher.EnableRaisingEvents = $true
+
+$action = {
+    Start-Sleep -Milliseconds 500   # let FZ finish writing
+    Repair-AppliedLayouts
+}
+
+Register-ObjectEvent -InputObject $watcher -EventName Changed -Action $action | Out-Null
+
+Write-Host "[$( Get-TS )] FancyZones layout guard started - watching $appliedFile"
+Write-Host "  Editor serial: $editorSerial  |  WMI serial: $wmiSerial"
+
+# Initial check
+Repair-AppliedLayouts
+
+# Keep the script alive
+try {
+    while ($true) { Start-Sleep -Seconds 60 }
+} finally {
+    $watcher.EnableRaisingEvents = $false
+    $watcher.Dispose()
+    Write-Host "[$( Get-TS )] FancyZones layout guard stopped"
+}
