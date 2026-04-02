@@ -394,6 +394,7 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 .preview-pane {
   flex:1 1 50%; height:100%; overflow-y:auto; padding:20px 28px;
   background:#fff;
+  font-variant-ligatures: common-ligatures;
 }
 
 /* Markdown rendered styles */
@@ -405,11 +406,13 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 .preview-pane a { color:#0366d6; }
 .preview-pane code {
   background:#f0f0f0; padding:2px 6px; border-radius:3px; font-size:0.9em;
-  font-family: 'Cascadia Code','Consolas', monospace;
+  font-family: 'Cascadia Code','Fira Code','JetBrains Mono','Consolas', monospace;
+  font-variant-ligatures: common-ligatures;
 }
 .preview-pane pre {
   background:#f6f8fa; padding:12px 16px; border-radius:6px; overflow-x:auto;
   margin:0.6em 0; border:1px solid #e1e4e8;
+  font-variant-ligatures: common-ligatures;
 }
 .preview-pane pre code { background:none; padding:0; }
 .preview-pane blockquote {
