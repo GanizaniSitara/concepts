@@ -33,7 +33,7 @@ param(
     [ValidateSet('claude','codex','copilot')]
     [string]$Tool = 'claude',
     [switch]$Remote,
-    [string]$RemoteHost = 'ubuntu1',
+    [string]$RemoteHost = 'remote-host',
     [string]$DisplayName = '',
     [string]$BarColor = ''
 )
@@ -41,8 +41,8 @@ param(
 $ErrorActionPreference = 'Continue'
 
 # ── Paths ──────────────────────────────────────────────────────────────
-$claudeExe   = 'C:\Users\admin\scripts\run-claude.cmd'
-$taskRoot    = 'C:\Users\admin\tasks'
+$claudeExe   = '$env:USERPROFILE\scripts\run-claude.cmd'
+$taskRoot    = '$env:USERPROFILE\tasks'
 $backlogDir  = Join-Path $taskRoot 'backlog'
 $progressDir = Join-Path $taskRoot 'in-progress'
 $doneDir     = Join-Path $taskRoot 'done'
@@ -63,7 +63,7 @@ $ToolConfig = @{
         PromptStyle    = 'positional'      # "prompt text"
     }
     'codex' = @{
-        Exe            = 'C:\Users\admin\AppData\Roaming\npm\codex.cmd'
+        Exe            = '$env:USERPROFILE\AppData\Roaming\npm\codex.cmd'
         Label          = 'Codex'
         SkipPermsFlag  = '--full-auto'
         SupportsName   = $false
@@ -72,7 +72,7 @@ $ToolConfig = @{
         PromptStyle    = 'positional'      # "prompt text"
     }
     'copilot' = @{
-        Exe            = 'C:\Users\admin\AppData\Roaming\npm\copilot.cmd'
+        Exe            = '$env:USERPROFILE\AppData\Roaming\npm\copilot.cmd'
         Label          = 'Copilot'
         SkipPermsFlag  = '--allow-all'
         SupportsName   = $false
@@ -280,19 +280,14 @@ $ProjectColors = @{
     # Numeric (001-012) = job search
     'blue'   = @('^[0-9]')
     # FIT = FitnessFunctions v2
-    'green'  = @('^FIT-')
-    # JPMT = JP Method Teaching
-    'yellow' = @('^JPMT-')
-    # GOL = Golf app
-    'red'    = @('^GOL-')
-    # MAIL / MBX = email projects
-    'purple' = @('^MAIL-', '^MBX-')
-    # OM / BFD / JAMES = smaller codebases
-    'orange' = @('^OM-', '^BFD-', '^JAMES-')
-    # TASK_ = ad-hoc / unprojectized
+    'green'  = @('^INFRA-')
+    'yellow' = @('^DATA-')
+    'red'    = @('^PROD-')
+    'purple' = @('^API-')
+    'orange' = @('^DEV-')
+    # TASK_ = ad-hoc / unprojectized (default)
     'cyan'   = @('^TASK_')
-    # PROJ / TS2 / RUN2 = personal / standalone
-    'pink'   = @('^PROJ-', '^TS2-', '^RUN2-')
+    'pink'   = @('^MISC-')
 }
 
 function Get-TaskColor {
@@ -486,7 +481,7 @@ function Launch-TaskSession {
         [switch]$Resume,
         [switch]$SkipPerms,
         [switch]$Remote,
-        [string]$RemoteHost = 'ubuntu1'
+        [string]$RemoteHost = 'remote-host'
     )
 
     $taskSlug = $TaskFile.BaseName
@@ -819,8 +814,8 @@ switch ($Action.ToLower()) {
     "refresh" {
         $envName = if ($Arg1) { $Arg1.ToLower() } else { "dev" }
         switch ($envName) {
-            "dev"  { $path = "C:\Solutions\Python\LifeRunnerV2dev" }
-            "prod" { $path = "C:\Solutions\Python\LifeRunnerV2prod" }
+            "dev"  { $path = "C:\Solutions\Python\AppServiceV2dev" }
+            "prod" { $path = "C:\Solutions\Python\AppServiceV2prod" }
             default { Write-Error "Unknown env: $envName. Use 'dev' or 'prod'"; return }
         }
         $script = Join-Path $path "refresh.cmd"
@@ -831,7 +826,7 @@ switch ($Action.ToLower()) {
 
     "screenshotter" {
         $python = "C:\miniconda3\envs\python312\python.exe"
-        $grabber = "C:\Users\admin\.claude\skills\rad_screenshotter\grabber.py"
+        $grabber = "$env:USERPROFILE\.claude\skills\rad_screenshotter\grabber.py"
         $duration = if ($Arg1) { $Arg1 } else { "300" }
         $outDir = & $python -c "import os, datetime; d = os.path.join('C:/Documents/Screengrabs', datetime.datetime.now().strftime('%Y%m%d_%H%M%S')); os.makedirs(d, exist_ok=True); print(d)"
         Write-Host "Output: $outDir"
@@ -841,7 +836,7 @@ switch ($Action.ToLower()) {
     }
 
     "screenshotter-stop" {
-        $pidFile = "C:\Users\admin\.claude\skills\rad_screenshotter\grabber.pid"
+        $pidFile = "$env:USERPROFILE\.claude\skills\rad_screenshotter\grabber.pid"
         if (Test-Path $pidFile) {
             $lines = Get-Content $pidFile
             $outDir = $lines[1]
@@ -873,8 +868,8 @@ switch ($Action.ToLower()) {
     -Resume                        Resume previous session
     -Next                          Pick next task from backlog
     -Count <N>                     Number of tasks to launch
-    -Remote                        Run on VM via SSH (default: ubuntu1)
-    -RemoteHost <name>             SSH host for remote (default: ubuntu1)
+    -Remote                        Run on VM via SSH (default: remote-host)
+    -RemoteHost <name>             SSH host for remote (default: remote-host)
 
   TASK LAUNCHER:
     task <slug>                  Launch session for a backlog task
@@ -882,9 +877,9 @@ switch ($Action.ToLower()) {
     task <slug> -Tool copilot    Launch with Copilot CLI instead of Claude
     task <slug> -Resume          Resume previous session for that task
     task <slug> -SkipPerms       Launch with permissions skipped
-    task <slug> -Remote          Run on ubuntu1 VM (auto skip-perms)
+    task <slug> -Remote          Run on remote-host VM (auto skip-perms)
     task <slug> -Remote -Tool codex   Remote with Codex (--full-auto)
-    task <slug> -Remote -RemoteHost ubuntu2   Run on ubuntu2 instead
+    task <slug> -Remote -RemoteHost remote-host-2   Run on remote-host-2 instead
     task -Next                   Pick next task from backlog
     task -Next -Count 3          Launch next 3 tasks in parallel
     status                       Show active zones and running tasks
@@ -896,7 +891,7 @@ switch ($Action.ToLower()) {
     claude-resume <session-id>   Resume a session by ID
 
   SERVICES:
-    refresh <dev|prod>           Restart LifeRunner (admin elevated)
+    refresh <dev|prod>           Restart AppService (admin elevated)
 
   TOOLS:
     screenshotter [seconds]      Start screenshot capture (default 300s)

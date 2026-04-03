@@ -1,2 +1,5 @@
 @echo off
-"C:\nvm4w\nodejs\node.exe" "C:\Users\admin\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js" %*
+REM Update these paths to match your environment:
+REM   - node.exe: your Node.js installation (nvm, nvm4w, or direct)
+REM   - cli.js: npm global install of @anthropic-ai/claude-code
+"C:\path\to\node.exe" "%APPDATA%\npm\node_modules\@anthropic-ai\claude-code\cli.js" %*
