@@ -9,9 +9,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -20,6 +22,51 @@ import (
 )
 
 var currentFile string
+var browseRoot string
+
+type treeNode struct {
+	Name     string     `json:"name"`
+	Path     string     `json:"path,omitempty"`
+	Dir      bool       `json:"dir"`
+	Children []treeNode `json:"children,omitempty"`
+}
+
+// scanTree walks root and returns a tree of folders plus .md files only.
+// Folders with no .md descendants are pruned.
+func scanTree(root string) treeNode {
+	node := treeNode{Name: filepath.Base(root), Dir: true}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return node
+	}
+	var dirs, files []treeNode
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		full := filepath.Join(root, name)
+		if e.IsDir() {
+			child := scanTree(full)
+			if len(child.Children) > 0 {
+				dirs = append(dirs, child)
+			}
+		} else if strings.EqualFold(filepath.Ext(name), ".md") {
+			files = append(files, treeNode{Name: name, Path: full, Dir: false})
+		}
+	}
+	sort.Slice(dirs, func(i, j int) bool { return strings.ToLower(dirs[i].Name) < strings.ToLower(dirs[j].Name) })
+	sort.Slice(files, func(i, j int) bool { return strings.ToLower(files[i].Name) < strings.ToLower(files[j].Name) })
+	node.Children = append(dirs, files...)
+	return node
+}
+
+func treeJSON(root string) string {
+	t := scanTree(root)
+	t.Name = root
+	b, _ := json.Marshal(t)
+	return string(b)
+}
 
 var (
 	comdlg32         = syscall.NewLazyDLL("comdlg32.dll")
@@ -264,11 +311,17 @@ func main() {
 	for _, arg := range os.Args[1:] {
 		if arg == "--print" {
 			autoPrint = true
-		} else if currentFile == "" {
-			currentFile = arg
-			data, err := os.ReadFile(currentFile)
-			if err == nil {
-				initialContent = string(data)
+		} else if currentFile == "" && browseRoot == "" {
+			info, err := os.Stat(arg)
+			if err == nil && info.IsDir() {
+				abs, _ := filepath.Abs(arg)
+				browseRoot = abs
+			} else {
+				currentFile = arg
+				data, err := os.ReadFile(currentFile)
+				if err == nil {
+					initialContent = string(data)
+				}
 			}
 		}
 	}
@@ -313,6 +366,27 @@ func main() {
 		return "ok"
 	})
 
+	w.Bind("goLoadFile", func(path string) map[string]string {
+		// Only allow loads under browseRoot to avoid arbitrary file reads from page content.
+		if browseRoot == "" {
+			return map[string]string{"error": "not in browse mode"}
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return map[string]string{"error": err.Error()}
+		}
+		if !strings.HasPrefix(strings.ToLower(abs), strings.ToLower(browseRoot)) {
+			return map[string]string{"error": "path outside browse root"}
+		}
+		data, err := os.ReadFile(abs)
+		if err != nil {
+			return map[string]string{"error": err.Error()}
+		}
+		currentFile = abs
+		w.SetTitle(windowTitle())
+		return map[string]string{"content": string(data), "name": filepath.Base(abs)}
+	})
+
 	w.Bind("goShowSaveDialog", func() string {
 		path := showSaveDialog(getHWND())
 		if path == "" {
@@ -323,7 +397,11 @@ func main() {
 		return filepath.Base(path)
 	})
 
-	w.SetHtml(htmlPage(initialContent, currentFile))
+	var tree string
+	if browseRoot != "" {
+		tree = treeJSON(browseRoot)
+	}
+	w.SetHtml(htmlPage(initialContent, currentFile, tree))
 
 	if autoPrint {
 		// Trigger print after a short delay to let marked.js load
@@ -338,6 +416,9 @@ func main() {
 func windowTitle() string {
 	if currentFile != "" {
 		return "TinyMD — " + currentFile
+	}
+	if browseRoot != "" {
+		return "TinyMD — " + browseRoot
 	}
 	return "TinyMD Editor"
 }
@@ -354,7 +435,15 @@ func jsEscape(s string) string {
 	return r.Replace(s)
 }
 
-func htmlPage(initialContent, fileName string) string {
+func htmlPage(initialContent, fileName, treeJSONStr string) string {
+	browseMode := "false"
+	if treeJSONStr != "" {
+		browseMode = "true"
+	}
+	if treeJSONStr == "" {
+		treeJSONStr = "null"
+	}
+	_ = browseMode
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -373,6 +462,21 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 .toolbar .hint { color:#999; margin-left:auto; }
 
 .container { display:flex; height:calc(100% - 36px); }
+
+.tree-pane {
+  width: 280px; flex-shrink:0; overflow-y:auto; overflow-x:hidden;
+  background:#fafafa; border-right:1px solid #ddd;
+  font-size: 13px; padding: 8px 0;
+}
+.tree-pane.hidden { display:none; }
+.tree-pane ul { list-style:none; padding-left: 14px; margin:0; }
+.tree-pane > ul { padding-left: 8px; }
+.tree-pane .node { padding: 2px 6px; cursor: pointer; border-radius:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tree-pane .node:hover { background:#eaeaea; }
+.tree-pane .node.file.active { background:#0366d6; color:#fff; }
+.tree-pane .node.dir { color:#555; font-weight:600; }
+.tree-pane .node.file { color:#0366d6; }
+.tree-pane .caret { display:inline-block; width:12px; color:#888; }
 
 .editor-pane {
   flex:1 1 50%; height:100%; display:flex; flex-direction:column;
@@ -453,6 +557,7 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 </div>
 
 <div class="container">
+  <div class="tree-pane hidden" id="tree"></div>
   <div class="editor-pane">
     <textarea id="editor" spellcheck="false" placeholder="Type your Markdown here..."></textarea>
   </div>
@@ -463,6 +568,7 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 <script>
 var _initContent = "` + jsEscape(initialContent) + `";
 var _initFname = "` + jsEscape(fileName) + `";
+var _tree = ` + treeJSONStr + `;
 
 // Lightweight inline markdown renderer for instant startup (no CDN wait)
 function quickMd(s) {
@@ -528,6 +634,62 @@ document.head.appendChild(sc);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
   });
+})();
+
+// Tree sidebar (browse mode)
+(function() {
+  if (!_tree) return;
+  var pane = document.getElementById('tree');
+  pane.classList.remove('hidden');
+  var activeEl = null;
+
+  function buildList(node) {
+    var ul = document.createElement('ul');
+    (node.children || []).forEach(function(c) {
+      var li = document.createElement('li');
+      var row = document.createElement('div');
+      row.className = 'node ' + (c.dir ? 'dir' : 'file');
+      if (c.dir) {
+        row.innerHTML = '<span class="caret">v</span>' + escapeHtml(c.name);
+        li.appendChild(row);
+        var sub = buildList(c);
+        li.appendChild(sub);
+        row.addEventListener('click', function() {
+          var hidden = sub.style.display === 'none';
+          sub.style.display = hidden ? '' : 'none';
+          row.firstChild.textContent = hidden ? 'v' : '>';
+        });
+      } else {
+        row.textContent = c.name;
+        row.dataset.path = c.path;
+        row.addEventListener('click', async function() {
+          var res = await goLoadFile(c.path);
+          if (res && res.content !== undefined) {
+            document.getElementById('editor').value = res.content;
+            document.getElementById('fname').textContent = res.name;
+            render();
+            if (activeEl) activeEl.classList.remove('active');
+            row.classList.add('active');
+            activeEl = row;
+          }
+        });
+        li.appendChild(row);
+      }
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  var header = document.createElement('div');
+  header.className = 'node dir';
+  header.style.fontSize = '11px';
+  header.style.color = '#888';
+  header.style.padding = '2px 12px 6px';
+  header.textContent = _tree.name;
+  pane.appendChild(header);
+  pane.appendChild(buildList(_tree));
 })();
 
 // Synchronous init — no async bridge calls, everything is instant
