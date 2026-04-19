@@ -1,0 +1,13 @@
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# Local double-click convenience wrappers - Python is the source of truth.
+mempalace-*.cmd
+mempalace-*.bat
+mempalace-*.ps1
+mempalace-*.sh
+mempalace_*.cmd
+mempalace_*.bat
+mempalace_*.ps1
+mempalace_*.sh
