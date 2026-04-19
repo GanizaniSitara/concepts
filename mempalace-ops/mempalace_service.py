@@ -27,7 +27,14 @@ PYTHON_EXE = r"C:\miniconda3\envs\python312\python.exe"
 HOST = "0.0.0.0"
 PORT = 8765
 
-LOG_DIR = Path(os.path.expandvars(r"%USERPROFILE%\.mempalace\service_logs"))
+# The service runs as LocalSystem, so ``%USERPROFILE%`` / ``~`` / ``Path.home()``
+# all resolve to ``C:\Windows\System32\config\systemprofile`` unless we
+# override. Mempalace stores its palace + entity registry + config under
+# ``~/.mempalace``, so we pin the user profile to the interactive account
+# that owns the data. Change this if the box's primary account ever moves.
+USER_PROFILE = r"C:\Users\admin"
+
+LOG_DIR = Path(USER_PROFILE) / ".mempalace" / "service_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -77,6 +84,10 @@ class MempalaceService(win32serviceutil.ServiceFramework):
         try:
             self._out = open(LOG_DIR / "server.out.log", "ab", buffering=0)
             self._err = open(LOG_DIR / "server.err.log", "ab", buffering=0)
+            child_env = os.environ.copy()
+            child_env["USERPROFILE"] = USER_PROFILE
+            child_env["HOMEDRIVE"] = USER_PROFILE[:2]
+            child_env["HOMEPATH"] = USER_PROFILE[2:]
             self.process = subprocess.Popen(
                 [
                     PYTHON_EXE,
@@ -88,6 +99,7 @@ class MempalaceService(win32serviceutil.ServiceFramework):
                 stdout=self._out,
                 stderr=self._err,
                 creationflags=subprocess.CREATE_NO_WINDOW,
+                env=child_env,
             )
             logger.info("child started pid=%s", self.process.pid)
             win32event.WaitForSingleObject(self.hWaitStop, win32event.INFINITE)
