@@ -1,5 +1,5 @@
 #!/opt/homebrew/bin/python3
-"""Poll Brave tabs for AI-tool usage and serve as JSON on localhost:8876/usage."""
+"""Poll browser tabs for AI-tool usage and serve as JSON on localhost:8876/usage."""
 import json
 import os
 import re
@@ -8,9 +8,17 @@ import threading
 import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 POLL_SECONDS = 300
 PORT = int(os.environ.get("AI_USAGE_MONITOR_PORT", "8876"))
+BROWSER_CANDIDATES = [
+    "Brave Browser",
+    "Google Chrome",
+    "Arc",
+    "Microsoft Edge",
+    "Google Chrome Canary",
+]
 
 TAB_MATCHERS = {
     "claude":  "claude.ai/settings/usage",
@@ -38,9 +46,27 @@ def osa(script: str) -> str:
     return r.stdout
 
 
+def resolve_browser_app() -> str:
+    configured = os.environ.get("AI_USAGE_MONITOR_BROWSER_APP")
+    if configured:
+        return configured
+    search_roots = [Path("/Applications"), Path.home() / "Applications"]
+    for candidate in BROWSER_CANDIDATES:
+        for root in search_roots:
+            if (root / f"{candidate}.app").exists():
+                return candidate
+    raise RuntimeError(
+        "No supported browser app found. Set AI_USAGE_MONITOR_BROWSER_APP to a Chromium browser app name."
+    )
+
+
+BROWSER_APP = resolve_browser_app()
+BROWSER_APP_LITERAL = BROWSER_APP.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def locate_tabs() -> dict[str, tuple[int, int]]:
-    script = '''
-    tell application "Brave Browser"
+    script = f'''
+    tell application "{BROWSER_APP_LITERAL}"
         set out to ""
         set wcount to count of windows
         repeat with w from 1 to wcount
@@ -66,7 +92,7 @@ def locate_tabs() -> dict[str, tuple[int, int]]:
 
 def fetch_text(window: int, tab: int) -> str:
     script = (
-        f'tell application "Brave Browser" to execute tab {tab} of window {window} '
+        f'tell application "{BROWSER_APP_LITERAL}" to execute tab {tab} of window {window} '
         'javascript "document.body.innerText"'
     )
     return osa(script)
@@ -148,9 +174,9 @@ PARSERS = {"claude": parse_claude, "codex": parse_codex, "copilot": parse_copilo
 
 
 def open_tab(url: str) -> None:
-    """Open URL in a background tab without activating Brave."""
+    """Open URL in a background tab without activating the configured browser."""
     script = f'''
-    tell application "Brave Browser"
+    tell application "{BROWSER_APP_LITERAL}"
         if (count of windows) = 0 then
             make new window
         end if
