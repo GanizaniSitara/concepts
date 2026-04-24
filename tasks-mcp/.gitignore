@@ -1,0 +1,15 @@
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.data/
+.tmp-manual-check/
+.tmp-test-work/
+tmp-pytest/
+pytest-cache-files-*/
+*.egg-info/
+build/
+dist/
+.coverage
+.env
+.venv/
+refresh.cmd

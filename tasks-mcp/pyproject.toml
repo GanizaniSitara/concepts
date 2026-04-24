@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tasks-mcp"
+version = "0.1.0"
+description = "Markdown-backed task tracker exposed over FastMCP."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "mcp>=1.0.0",
+  "PyYAML>=6.0",
+  "Whoosh>=2.7.4",
+]
+
+[project.scripts]
+tasks-mcp = "tasks_mcp.server:main"
+tasks-mcp-http = "run_http:main"
+tasks-mcp-refresh-service = "refresh_service:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
