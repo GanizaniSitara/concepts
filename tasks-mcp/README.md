@@ -21,13 +21,13 @@ tasks-root/
   done/
 ```
 
-New tasks use a canonical basename such as `MAIL-008-openclaw-lite-design.md`.
+New tasks use a canonical basename such as `PROJ-008-example-task.md`.
 
 Each task may have a companion folder with the same stem:
 
 ```text
-MAIL-008-openclaw-lite-design.md
-MAIL-008-openclaw-lite-design/
+PROJ-008-example-task.md
+PROJ-008-example-task/
   DESIGN.md
   NOTES.md
 ```
@@ -38,9 +38,9 @@ Moving a task between statuses moves both the markdown file and its companion fo
 
 The migration tool rewrites mixed legacy forms such as:
 
-- `MAIL-8_openclaw-lite-design.md`
+- `PROJ-8_example-old-form.md`
 - `001-title-keyword-matrix.md`
-- `TASK_job-application-pipeline-design.md`
+- `TASK_legacy-task-name.md`
 - `PROJ-5.10_import-saved-searches.md`
 
 into a canonical `PREFIX-NNN-slug` scheme in place, preserving companion folders and normalizing references where possible.

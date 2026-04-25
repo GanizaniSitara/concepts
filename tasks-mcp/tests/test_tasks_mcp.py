@@ -144,11 +144,11 @@ def test_legacy_project_names_do_not_leak_into_task_output() -> None:
         repo = TaskRepository(settings)
         index = TicketIndex(settings.index_dir, repo)
         (settings.tasks_root / "backlog").mkdir(parents=True, exist_ok=True)
-        path = settings.tasks_root / "backlog" / "TASK_job-application-pipeline-design.md"
+        path = settings.tasks_root / "backlog" / "TASK_legacy-multiword-name.md"
         path.write_text(
             """---
-task: TASK_job-application-pipeline-design
-title: Design end-to-end job application pipeline automation
+task: TASK_legacy-multiword-name
+title: Legacy task with multi word title
 status: backlog
 project: open-moniker
 ---
@@ -158,7 +158,7 @@ Pipeline work.
             encoding="utf-8",
         )
 
-        ticket = repo.find_ticket("TASK_job-application-pipeline-design")
+        ticket = repo.find_ticket("TASK_legacy-multiword-name")
         data = repo.task_to_dict(ticket, include_content=False)
         assert ticket.prefix == "TASK"
         assert ticket.project == "TASK"
@@ -167,7 +167,7 @@ Pipeline work.
 
         results = index.search(query="pipeline automation", limit=5)
         assert any(
-            item["task_id"] == "TASK_job-application-pipeline-design"
+            item["task_id"] == "TASK_legacy-multiword-name"
             and item["project"] == "TASK"
             and item["frontmatter"]["project"] == "TASK"
             for item in results
@@ -186,15 +186,15 @@ def test_migration_normalizes_legacy_forms() -> None:
         (settings.tasks_root / "done").mkdir(parents=True, exist_ok=True)
         (settings.tasks_root / "blocked").mkdir(parents=True, exist_ok=True)
 
-        (settings.tasks_root / "in-progress" / "MAIL-8_openclaw-lite-design.md").write_text(
+        (settings.tasks_root / "in-progress" / "BBB-8_legacy-design-task.md").write_text(
             """---
-title: OpenClaw Lite Design
+title: Legacy Design Task
 status: in-progress
-ticket: MAIL-8
-project: mailrunner
+ticket: BBB-8
+project: example
 ---
 
-Mail task content.
+Legacy task content.
 """,
             encoding="utf-8",
         )
@@ -205,7 +205,7 @@ title: Build title matrix
 status: blocked
 ---
 
-Blocked pending CV work.
+Blocked pending review.
 """,
             encoding="utf-8",
         )
@@ -214,10 +214,10 @@ Blocked pending CV work.
             "Legacy companion content.",
             encoding="utf-8",
         )
-        (settings.tasks_root / "backlog" / "TASK_job-application-pipeline-design.md").write_text(
+        (settings.tasks_root / "backlog" / "TASK_legacy-multiword-name.md").write_text(
             """---
-id: TASK_job-application-pipeline-design
-title: Design end-to-end job application pipeline automation
+id: TASK_legacy-multiword-name
+title: Legacy task with multi word title
 status: backlog
 project: TASK
 ---
@@ -242,17 +242,17 @@ Import work.
 
         preview = repo.plan_migration()
         actions = {item.current_ticket_id: item for item in preview["actions"]}
-        assert actions["MAIL-8"].target_ticket_id == "MAIL-008"
+        assert actions["BBB-8"].target_ticket_id == "BBB-008"
         assert actions["001"].target_ticket_id == "TASK-001"
-        assert actions["TASK_job-application-pipeline-design"].target_ticket_id == "TASK-002"
+        assert actions["TASK_legacy-multiword-name"].target_ticket_id == "TASK-002"
         assert actions["PROJ-5.10"].target_ticket_id == "PROJ-510"
 
         applied = repo.apply_migration()
         assert applied["migrated_count"] == 4
-        assert (settings.tasks_root / "in-progress" / "MAIL-008-openclaw-lite-design.md").exists()
+        assert (settings.tasks_root / "in-progress" / "BBB-008-legacy-design-task.md").exists()
         assert (settings.tasks_root / "blocked" / "TASK-001-build-title-matrix.md").exists()
         assert (settings.tasks_root / "blocked" / "TASK-001-build-title-matrix").is_dir()
-        assert (settings.tasks_root / "backlog" / "TASK-002-design-end-to-end-job-application-pipeline-automation.md").exists()
+        assert (settings.tasks_root / "backlog" / "TASK-002-legacy-task-with-multi-word-title.md").exists()
 
         migrated = repo.find_ticket("PROJ-510")
         assert migrated.frontmatter["parent"] == "PROJ-005"
@@ -311,7 +311,7 @@ def test_reopen_rejects_invalid_target_status() -> None:
 
 
 def test_move_with_replace_strategy_overwrites_stale_destination() -> None:
-    """The MAIL-5 scenario: live copy in backlog with rich content, stale minimal
+    """The BBB-5 scenario: live copy in backlog with rich content, stale minimal
     copy in done, caller wants to close the live copy. Default strategy errors
     on the destination collision; strategy='replace' nukes the stale done file
     first and then moves the live copy in.

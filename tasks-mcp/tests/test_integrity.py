@@ -109,14 +109,14 @@ def test_lint_flags_duplicates_and_status_mismatches() -> None:
         service = make_service(tmp_root)
         root = service.repository.tasks_root
 
-        # Duplicate FIT-22 in backlog + done
+        # Duplicate AAA-22 in backlog + done
         write_ticket_file(
-            root, "backlog", "FIT-022-example",
-            task_id="FIT-022", title="Example", status="backlog", project="FIT"
+            root, "backlog", "AAA-022-example",
+            task_id="AAA-022", title="Example", status="backlog", project="AAA"
         )
         write_ticket_file(
-            root, "done", "FIT-022-example",
-            task_id="FIT-022", title="Example done", status="done", project="FIT"
+            root, "done", "AAA-022-example",
+            task_id="AAA-022", title="Example done", status="done", project="AAA"
         )
         # Status mismatch: file in in-progress/ but frontmatter says backlog
         write_ticket_file(
@@ -124,7 +124,7 @@ def test_lint_flags_duplicates_and_status_mismatches() -> None:
             task_id="TECH-010", title="Drift", status="backlog", project="TECH"
         )
         # Orphan companion dir
-        (root / "backlog" / "004-canary-wharf-employers").mkdir()
+        (root / "backlog" / "004-orphan-companion").mkdir()
         # Non-canonical priority
         write_ticket_file(
             root, "backlog", "TASK-001-mixed-prio",
@@ -140,7 +140,7 @@ def test_lint_flags_duplicates_and_status_mismatches() -> None:
         report = service.lint()
         integrity = report["integrity"]
 
-        assert any(d["task_id"] == "FIT-022" and d["count"] == 2 for d in integrity["duplicate_task_ids"])
+        assert any(d["task_id"] == "AAA-022" and d["count"] == 2 for d in integrity["duplicate_task_ids"])
 
         assert any(
             m["task_id"] == "TECH-010"
@@ -150,7 +150,7 @@ def test_lint_flags_duplicates_and_status_mismatches() -> None:
         )
 
         assert any(
-            "004-canary-wharf-employers" in o["dir"]
+            "004-orphan-companion" in o["dir"]
             for o in integrity["orphan_companion_dirs"]
         )
 
@@ -161,7 +161,7 @@ def test_lint_flags_duplicates_and_status_mismatches() -> None:
 
         counts = report["counts"]
         assert counts["files_on_disk"] == 5
-        assert counts["unique_task_ids"] == 4  # FIT-022 collapses
+        assert counts["unique_task_ids"] == 4  # AAA-022 collapses
         assert counts["delta"] == 1
     finally:
         shutil.rmtree(tmp_root, ignore_errors=True)
@@ -173,17 +173,17 @@ def test_lint_detects_split_brain_when_priorities_diverge() -> None:
         service = make_service(tmp_root)
         root = service.repository.tasks_root
         write_ticket_file(
-            root, "backlog", "MAIL-008-a",
-            task_id="MAIL-008", title="Mail work", status="backlog",
-            priority="P4", project="MAIL", body="Backlog body."
+            root, "backlog", "BBB-008-a",
+            task_id="BBB-008", title="Test work", status="backlog",
+            priority="P4", project="BBB", body="Backlog body."
         )
         write_ticket_file(
-            root, "in-progress", "MAIL-008-b",
-            task_id="MAIL-008", title="Mail work", status="in-progress",
-            priority="P1", project="MAIL", body="In-progress body."
+            root, "in-progress", "BBB-008-b",
+            task_id="BBB-008", title="Test work", status="in-progress",
+            priority="P1", project="BBB", body="In-progress body."
         )
         report = service.lint()
-        assert any(s["task_id"] == "MAIL-008" for s in report["integrity"]["split_brain_content"])
+        assert any(s["task_id"] == "BBB-008" for s in report["integrity"]["split_brain_content"])
     finally:
         shutil.rmtree(tmp_root, ignore_errors=True)
 
@@ -215,16 +215,16 @@ def test_pivot_dedupes_by_task_id_and_normalizes_priority() -> None:
             priority="critical", project="TECH"
         )
         write_ticket_file(
-            root, "backlog", "FIT-001",
-            task_id="FIT-001", title="F1", status="backlog",
-            priority="medium", project="FIT"
+            root, "backlog", "AAA-001",
+            task_id="AAA-001", title="F1", status="backlog",
+            priority="medium", project="AAA"
         )
 
         result = service.pivot(rows="project", cols="priority", status=["backlog", "in-progress"])
         # TECH-001 dedupes to the in-progress copy (open-status preference)
         assert sum(sum(row) for row in result["cells"]) == 3
         assert "TECH" in result["rows"]
-        assert "FIT" in result["rows"]
+        assert "AAA" in result["rows"]
         assert "P1" in result["cols"]
         assert "P3" in result["cols"]
 
@@ -342,19 +342,19 @@ def test_repair_flag_split_brain_tags_duplicates() -> None:
         service = make_service(tmp_root)
         root = service.repository.tasks_root
         write_ticket_file(
-            root, "backlog", "MAIL-008-a",
-            task_id="MAIL-008", title="Mail work", status="backlog",
-            priority="P4", project="MAIL", body="Backlog body."
+            root, "backlog", "BBB-008-a",
+            task_id="BBB-008", title="Test work", status="backlog",
+            priority="P4", project="BBB", body="Backlog body."
         )
         write_ticket_file(
-            root, "in-progress", "MAIL-008-b",
-            task_id="MAIL-008", title="Mail work", status="in-progress",
-            priority="P1", project="MAIL", body="In-progress body."
+            root, "in-progress", "BBB-008-b",
+            task_id="BBB-008", title="Test work", status="in-progress",
+            priority="P1", project="BBB", body="In-progress body."
         )
         applied = service.repair(fixes=["flag_split_brain"], dry_run=False)
         assert len(applied["applied_steps"]) == 2
         tickets = service.repository.scan_tickets()
-        mail = [t for t in tickets if t.ticket_id == "MAIL-008"]
+        mail = [t for t in tickets if t.ticket_id == "BBB-008"]
         assert len(mail) == 2
         for t in mail:
             assert "SPLIT-BRAIN" in t.tags
