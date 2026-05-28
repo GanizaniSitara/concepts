@@ -18,6 +18,7 @@ from .config import (
     normalize_status,
     normalize_prefix,
     status_dir,
+    validate_prefix_for_creation,
 )
 from .models import MigrationAction, Ticket
 
@@ -258,7 +259,7 @@ class TaskRepository:
     ) -> Ticket:
         self.ensure_structure()
         normalized_status = normalize_status(status)
-        prefix_key = normalize_prefix(prefix or self.settings.default_prefix)
+        prefix_key = validate_prefix_for_creation(prefix or self.settings.default_prefix)
         ticket_id = canonical_ticket_id(prefix_key, self.next_ticket_number(prefix_key))
         slug = self.slugify(title)
         stem = f"{ticket_id}-{slug}"
@@ -322,9 +323,9 @@ class TaskRepository:
         create_companion: bool | None = None,
         strategy: str = "error",
     ) -> Ticket:
-        if strategy not in ("error", "replace"):
+        if strategy not in ("error", "replace", "merge"):
             raise ValueError(
-                f"Unknown strategy {strategy!r}; expected 'error' or 'replace'"
+                f"Unknown strategy {strategy!r}; expected 'error', 'replace', or 'merge'"
             )
         ticket = self.find_ticket(ticket_id)
         old_path = ticket.path
@@ -375,6 +376,9 @@ class TaskRepository:
             if new_path.exists():
                 if strategy == "replace":
                     new_path.unlink()
+                elif strategy == "merge":
+                    self._merge_destination_into_ticket(ticket, new_path)
+                    new_path.unlink()
                 else:
                     raise FileExistsError(
                         f"Destination ticket file already exists: {new_path}"
@@ -384,6 +388,9 @@ class TaskRepository:
             if old_companion:
                 if new_companion.exists():
                     if strategy == "replace":
+                        shutil.rmtree(new_companion)
+                    elif strategy == "merge":
+                        self._merge_companion_dirs(old_companion, new_companion)
                         shutil.rmtree(new_companion)
                     else:
                         raise FileExistsError(
@@ -407,6 +414,61 @@ class TaskRepository:
         strategy: str = "error",
     ) -> Ticket:
         return self.update_ticket(ticket_id, status=status, strategy=strategy)
+
+    def _merge_destination_into_ticket(self, ticket: Ticket, dest_path: Path) -> None:
+        """Fold the destination file's body into ticket.body so nothing is lost.
+
+        Source frontmatter wins (it is the explicit move target). The destination
+        body is appended to ticket.body under a dated archive heading. Non-conflicting
+        extra frontmatter keys from the destination are preserved on ticket.frontmatter.
+        Mutates ticket in-place.
+        """
+        try:
+            raw = dest_path.read_text(encoding="utf-8", errors="replace")
+        except FileNotFoundError:
+            return
+
+        dest_meta, dest_body = self._split_frontmatter(raw)
+        other_body = dest_body.rstrip()
+
+        archive_label = self._str_or_none(dest_meta.get("updated")) or "previous copy"
+
+        if other_body:
+            archive_section = (
+                f"## Archived from previous copy ({archive_label})\n\n{other_body}"
+            )
+            existing = ticket.body.rstrip()
+            if existing:
+                ticket.body = existing + "\n\n" + archive_section + "\n"
+            else:
+                ticket.body = archive_section + "\n"
+
+        for key, value in dest_meta.items():
+            if key in ("task", "ticket", "id", "title", "status", "updated", "priority", "tags", "project"):
+                continue
+            if key not in ticket.frontmatter and value is not None:
+                ticket.frontmatter[key] = value
+
+        dest_created = self._str_or_none(dest_meta.get("created"))
+        src_created = ticket.created
+        if dest_created and (not src_created or dest_created < src_created):
+            ticket.created = dest_created
+            ticket.frontmatter["created"] = dest_created
+
+    def _merge_companion_dirs(self, source: Path, dest: Path) -> None:
+        """Copy any files from dest into source unless source already has them.
+
+        Source wins on filename collision. Both directories must exist.
+        """
+        for item in dest.rglob("*"):
+            if not item.is_file():
+                continue
+            rel = item.relative_to(dest)
+            target = source / rel
+            if target.exists():
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(item), str(target))
 
     def append_note(self, ticket_id: str, note: str, heading: str = "Notes") -> Ticket:
         ticket = self.find_ticket(ticket_id)

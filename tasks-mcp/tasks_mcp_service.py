@@ -8,15 +8,6 @@ import subprocess
 import sys
 import time
 
-from tasks_mcp.config import (
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    DEFAULT_PREFIX,
-    default_index_dir,
-    default_log_dir,
-    default_tasks_root,
-)
-
 try:
     import servicemanager
     import win32event
@@ -29,18 +20,25 @@ except ImportError as exc:  # pragma: no cover - only used on service hosts
     ) from exc
 
 
-SERVICE_NAME = "TasksMcpHttp"
-DISPLAY_NAME = "Tasks MCP HTTP"
+SERVICE_NAME = "PythonTasksMcpHttp"
+DISPLAY_NAME = "Python Tasks MCP HTTP"
 DESCRIPTION = "HTTP MCP server for the local markdown task corpus"
 
 RUNTIME_ROOT = Path(__file__).resolve().parent
-PYTHON_EXE = Path(os.environ.get("TASKS_MCP_PYTHON", sys.executable))
-TASKS_ROOT = Path(os.environ.get("TASKS_ROOT", str(default_tasks_root())))
-INDEX_DIR = Path(os.environ.get("TASKS_INDEX_DIR", str(default_index_dir(RUNTIME_ROOT))))
-LOG_DIR = Path(os.environ.get("TASKS_MCP_LOG_DIR", str(default_log_dir(RUNTIME_ROOT))))
-HOST = os.environ.get("TASKS_MCP_HOST", DEFAULT_HOST)
-PORT = int(os.environ.get("TASKS_MCP_PORT", str(DEFAULT_PORT)))
-DEFAULT_TASK_PREFIX = os.environ.get("TASKS_MCP_DEFAULT_PREFIX", DEFAULT_PREFIX)
+# Under pywin32 service host, sys.executable resolves to pythonservice.exe,
+# which cannot run "-m tasks_mcp.server" -- prior crash-loop root cause.
+DEFAULT_PYTHON = r"C:\miniconda3\envs\python312\python.exe"
+PYTHON_EXE = Path(os.environ.get("TASKS_MCP_PYTHON", DEFAULT_PYTHON))
+TASKS_ROOT = Path(os.environ.get("TASKS_ROOT", r"C:\Users\admin\tasks"))
+INDEX_DIR = Path(
+    os.environ.get("TASKS_INDEX_DIR", r"C:\Users\admin\.codex\memories\tasks-mcp\whoosh")
+)
+LOG_DIR = Path(
+    os.environ.get("TASKS_MCP_LOG_DIR", r"C:\Users\admin\.codex\memories\tasks-mcp")
+)
+HOST = os.environ.get("TASKS_MCP_HOST", "0.0.0.0")
+PORT = int(os.environ.get("TASKS_MCP_PORT", "8876"))
+DEFAULT_PREFIX = os.environ.get("TASKS_MCP_DEFAULT_PREFIX", "TASK")
 
 
 def configure_logging() -> logging.Logger:
@@ -84,7 +82,7 @@ def build_command() -> list[str]:
         "--transport",
         "streamable-http",
         "--default-prefix",
-        DEFAULT_TASK_PREFIX,
+        DEFAULT_PREFIX,
     ]
 
 

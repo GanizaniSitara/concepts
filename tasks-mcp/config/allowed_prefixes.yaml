@@ -1,0 +1,74 @@
+# Allowed task prefixes for the tasks MCP — STRICT ALLOWLIST.
+#
+# ============================================================================
+# DO NOT EDIT WITHOUT EXPLICIT USER APPROVAL.
+#
+# Agents (Claude / Codex / Copilot / OpenCode) MUST NOT add new entries on
+# their own. The flow is always:
+#
+#   1. Agent encounters work that needs a new project code.
+#   2. Agent ASKS the user. "Looks like this needs a new project" is NOT
+#      approval — the user must say YES to that specific code.
+#   3. The USER (or the agent on direct instruction) adds the entry to the
+#      `prefixes:` section below — NOT to `two_letter_legacy:`.
+#   4. Next create_task call picks it up. No server restart required.
+# ============================================================================
+#
+# Format rules:
+#   - prefix matches ^[A-Z][A-Z0-9]+$ — uppercase, starts with a letter,
+#     alphanumeric only.
+#   - Three letters or longer is the rule for any new entry. Two-letter codes
+#     are FROZEN — see `two_letter_legacy:` below.
+#   - Ticket id is always <PREFIX>-NNN (3+ digit zero-padded number).
+#
+# Why two-letter is frozen:
+#   - mempalace's detect_room uses substring matching, so short codes (e.g.
+#     a hypothetical PIM) get misrouted into longer rooms that contain them
+#     (PIMH).
+#   - mempalace's `init` silently drops rooms shorter than 3 chars.
+#   - Three-letter is the safe default everywhere else in the system.
+#   - The two existing two-letter codes (OM, OP) predate the rule and have
+#     known longer cousins (OMN, OPE) that the user is aware of and lives
+#     with. No new two-letter codes will be accepted.
+
+# Frozen list. Closed. New two-letter entries WILL be rejected by the
+# validator regardless of whether they appear here.
+two_letter_legacy:
+  OM: Open Moniker (current canonical work)
+  OP: Operations catch-all (personal-ops, automation, lifestyle)
+
+# Primary allowlist. Three letters or longer. Add new entries here, with
+# user approval, one per line, alphabetised within each themed block.
+prefixes:
+  # Active product/dev projects
+  OMN: Older Moniker codename, predecessor to OM
+  WBN: Workbench web/UI app consuming Moniker
+  MAIL: MailRunner / OpenClaw Lite email processor (also yearly mailbox folder housekeeping)
+  DCT: handy-dotnet voice transcription tool
+  EBAY: eBay buyer (sniper, ThinkPad search, eBay sniper subtasks)
+  EBY: eBay lister (photo-to-auction pipeline)
+  IMA: iOS Appium reviewer (Hinge media review)
+  ESP: Sister to IMA (Hinge/Feeld reviewers)
+  CHM: Chat harvester (Claude.ai + ChatGPT scraping)
+
+  # Job search and career
+  JOB: Job-search workstream (jobpipe, triage UI, interview prep, Julia ingestion)
+  PIMH: PIMCO Hub (prior-employer work, fixed-income, architect work)
+
+  # Infra, ops, tooling
+  TECH: General tech R&D and tooling
+  OPE: Older ops codename, superseded by OP
+  DVT: DevOps runner (overnight agents, K3s tunnels, remote launcher)
+
+  # Personal projects and life
+  SIGIT: Acoustic monitor — overnight transient-noise logging from microphone
+  JPMT: JP Method (music education, PDFs, Spanish SR, learning reviews)
+  BFD: BFD project (JP Method adjacent — videos, mailing list)
+  GOL: Golf ML (club-position detection, replay bugs)
+  FIT: Fitness / personal data wrangling
+  TS2: Things-to-sort personal bucket (shoes, prints, DLA)
+  KMS: Knowledge management — book triage, article digest, mempalace ingest, reading list
+
+  # Legacy / generic — kept ONLY as the default fallback for the MCP server.
+  # Do not file new work under TASK; pick a real prefix above.
+  TASK: Default fallback only — do not use for new work

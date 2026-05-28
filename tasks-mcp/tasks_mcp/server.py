@@ -371,7 +371,10 @@ def create_app(settings: Settings) -> FastMCP:
         description=(
             "Move a task between backlog, in-progress, blocked, and done. "
             "strategy='error' (default) raises when the destination file/companion already "
-            "exists; strategy='replace' deletes the stale destination first."
+            "exists; strategy='replace' deletes the stale destination first; "
+            "strategy='merge' folds the destination body into the source under an "
+            "'Archived from previous copy' heading so nothing is lost (source frontmatter "
+            "wins; companion files merge with source-wins on filename collision)."
         )
     )
     def move_task(

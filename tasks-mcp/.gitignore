@@ -6,10 +6,6 @@ __pycache__/
 .tmp-test-work/
 tmp-pytest/
 pytest-cache-files-*/
-*.egg-info/
-build/
-dist/
-.coverage
 .env
 .venv/
 refresh.cmd

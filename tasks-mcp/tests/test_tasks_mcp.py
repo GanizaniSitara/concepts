@@ -6,9 +6,21 @@ import tempfile
 
 import pytest
 
-from tasks_mcp.config import Settings
+from tasks_mcp.config import (
+    Settings,
+    load_allowed_prefixes,
+    validate_prefix_for_creation,
+)
 from tasks_mcp.indexer import TicketIndex
 from tasks_mcp.markdown_store import DuplicateTicketError, TaskRepository
+
+
+@pytest.fixture(autouse=True)
+def _disable_prefix_allowlist(monkeypatch, tmp_path):
+    """Tests use synthetic prefixes (TEST, PRJ, BBB) that aren't in the production
+    allowlist. Point the env override at a non-existent path so load_allowed_prefixes
+    returns None (lenient mode) for every test."""
+    monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(tmp_path / "no-such-allowlist.yaml"))
 
 
 def make_temp_root() -> Path:
@@ -359,6 +371,124 @@ Stale pre-existing copy.
         shutil.rmtree(tmp_root, ignore_errors=True)
 
 
+def test_move_with_merge_strategy_preserves_destination_body() -> None:
+    """The OM-13/OM-20 scenario: live source has its own body, the stale destination
+    has rich reassessment notes. strategy='merge' must keep both — source body on
+    top, destination body appended under an 'Archived from previous copy' heading.
+    """
+    tmp_root = make_temp_root()
+    try:
+        settings = make_settings(tmp_root)
+        repo = TaskRepository(settings)
+
+        repo.create_ticket(
+            title="Drift example",
+            description="Live body — current understanding.",
+            prefix="TEST",
+            project="TEST",
+        )
+
+        (settings.tasks_root / "done").mkdir(parents=True, exist_ok=True)
+        stale_path = settings.tasks_root / "done" / "TEST-001-drift-example.md"
+        stale_path.write_text(
+            """---
+task: TEST-001
+title: Drift example
+status: done
+project: TEST
+created: 2026-01-15
+updated: 2026-04-24
+depends: TEST-099
+---
+
+Stale body — earlier reassessment notes worth keeping.
+""",
+            encoding="utf-8",
+        )
+
+        merged = repo.move_ticket("TEST-001", "done", strategy="merge")
+
+        assert merged.status == "done"
+        assert merged.path.parent.name == "done"
+        assert "Live body — current understanding." in merged.body
+        assert "Stale body — earlier reassessment notes worth keeping." in merged.body
+        assert "## Archived from previous copy (2026-04-24)" in merged.body
+
+        # Source frontmatter wins on direct conflicts, but non-conflicting extras
+        # from the destination get preserved.
+        assert merged.frontmatter.get("depends") == "TEST-099"
+        # Earlier created date survives.
+        assert merged.created == "2026-01-15"
+
+        remaining = repo.find_all_tickets("TEST-001")
+        assert len(remaining) == 1
+        assert remaining[0].status == "done"
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+
+def test_move_with_merge_unions_companion_folders() -> None:
+    """Both source and destination companions exist — merge keeps unique files
+    from both, source wins on filename collision.
+    """
+    tmp_root = make_temp_root()
+    try:
+        settings = make_settings(tmp_root)
+        repo = TaskRepository(settings)
+
+        created = repo.create_ticket(
+            title="Companion merge",
+            description="Source body.",
+            prefix="TEST",
+            project="TEST",
+        )
+        assert created.companion_dir is not None
+        (created.companion_dir / "shared.md").write_text("source wins\n", encoding="utf-8")
+        (created.companion_dir / "source-only.md").write_text("source unique\n", encoding="utf-8")
+
+        (settings.tasks_root / "done").mkdir(parents=True, exist_ok=True)
+        stale_path = settings.tasks_root / "done" / "TEST-001-companion-merge.md"
+        stale_companion = settings.tasks_root / "done" / "TEST-001-companion-merge"
+        stale_path.write_text(
+            """---
+task: TEST-001
+title: Companion merge
+status: done
+project: TEST
+---
+
+Stale body.
+""",
+            encoding="utf-8",
+        )
+        stale_companion.mkdir()
+        (stale_companion / "shared.md").write_text("dest loses\n", encoding="utf-8")
+        (stale_companion / "dest-only.md").write_text("dest unique\n", encoding="utf-8")
+
+        merged = repo.move_ticket("TEST-001", "done", strategy="merge")
+
+        merged_companion = merged.companion_dir
+        assert merged_companion is not None
+        assert merged_companion.is_dir()
+        assert (merged_companion / "shared.md").read_text(encoding="utf-8") == "source wins\n"
+        assert (merged_companion / "source-only.md").read_text(encoding="utf-8") == "source unique\n"
+        assert (merged_companion / "dest-only.md").read_text(encoding="utf-8") == "dest unique\n"
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+
+def test_move_with_unknown_strategy_rejected() -> None:
+    tmp_root = make_temp_root()
+    try:
+        settings = make_settings(tmp_root)
+        repo = TaskRepository(settings)
+        repo.create_ticket(title="Strategy check", prefix="TEST", project="TEST")
+        with pytest.raises(ValueError, match="Unknown strategy"):
+            repo.move_ticket("TEST-001", "done", strategy="garbage")
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+
 def test_delete_task_removes_file_and_companion() -> None:
     tmp_root = make_temp_root()
     try:
@@ -417,3 +547,139 @@ Stale copy.
         assert result["remaining"]
     finally:
         shutil.rmtree(tmp_root, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Prefix allowlist — strict 3-letter floor with frozen 2-letter exception
+# ---------------------------------------------------------------------------
+
+def _write_allowlist(tmp_path: Path, two_letter: dict[str, str], prefixes: dict[str, str]) -> Path:
+    """Write a synthetic allowlist YAML and return its path."""
+    body_lines = ["two_letter_legacy:"]
+    for k, v in two_letter.items():
+        body_lines.append(f"  {k}: {v}")
+    body_lines.append("prefixes:")
+    for k, v in prefixes.items():
+        body_lines.append(f"  {k}: {v}")
+    path = tmp_path / "allowed_prefixes.yaml"
+    path.write_text("\n".join(body_lines) + "\n", encoding="utf-8")
+    return path
+
+
+class TestPrefixAllowlistStrict:
+    """The allowlist enforces a 3-letter minimum with a frozen 2-letter
+    legacy section. This locks the policy: agents cannot mint new prefixes
+    by editing the YAML, and 2-letter codes are pinned to the existing pair."""
+
+    def test_three_letter_in_allowlist_accepted(self, monkeypatch, tmp_path):
+        path = _write_allowlist(
+            tmp_path,
+            two_letter={"OM": "Open Moniker"},
+            prefixes={"WBN": "Workbench", "JOB": "Job search"},
+        )
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(path))
+        assert validate_prefix_for_creation("WBN") == "WBN"
+        assert validate_prefix_for_creation("job") == "JOB"  # case-folds
+
+    def test_three_letter_not_in_allowlist_rejected(self, monkeypatch, tmp_path):
+        path = _write_allowlist(
+            tmp_path,
+            two_letter={"OM": "Open Moniker"},
+            prefixes={"WBN": "Workbench"},
+        )
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(path))
+        with pytest.raises(ValueError, match="not in the allowlist"):
+            validate_prefix_for_creation("FOO")
+
+    def test_legacy_two_letter_accepted(self, monkeypatch, tmp_path):
+        path = _write_allowlist(
+            tmp_path,
+            two_letter={"OM": "Open Moniker", "OP": "Operations"},
+            prefixes={"WBN": "Workbench"},
+        )
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(path))
+        assert validate_prefix_for_creation("OM") == "OM"
+        assert validate_prefix_for_creation("op") == "OP"
+
+    def test_two_letter_not_in_legacy_rejected(self, monkeypatch, tmp_path):
+        """A two-letter code that isn't on the frozen list must be rejected
+        even if someone tries to slip it into `prefixes:` instead."""
+        path = _write_allowlist(
+            tmp_path,
+            two_letter={"OM": "Open Moniker"},
+            prefixes={"AB": "Sneaky two-letter under the wrong key", "WBN": "Workbench"},
+        )
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(path))
+        with pytest.raises(ValueError, match="two-letter"):
+            validate_prefix_for_creation("AB")
+
+    def test_two_letter_outside_allowlist_rejected_with_clear_message(self, monkeypatch, tmp_path):
+        path = _write_allowlist(
+            tmp_path,
+            two_letter={"OM": "Open Moniker"},
+            prefixes={"WBN": "Workbench"},
+        )
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(path))
+        with pytest.raises(ValueError, match="three letters or longer"):
+            validate_prefix_for_creation("XY")
+
+    def test_one_letter_rejected_by_format(self, monkeypatch, tmp_path):
+        path = _write_allowlist(
+            tmp_path,
+            two_letter={"OM": "Open Moniker"},
+            prefixes={"WBN": "Workbench"},
+        )
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(path))
+        with pytest.raises(ValueError, match="minimum 2 characters"):
+            validate_prefix_for_creation("X")
+
+    def test_empty_prefix_rejected(self, monkeypatch, tmp_path):
+        path = _write_allowlist(
+            tmp_path,
+            two_letter={"OM": "Open Moniker"},
+            prefixes={"WBN": "Workbench"},
+        )
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(path))
+        with pytest.raises(ValueError):
+            validate_prefix_for_creation("")
+
+    def test_lenient_mode_when_no_allowlist_file(self, monkeypatch, tmp_path):
+        """If the allowlist file is missing entirely, fall back to format-only
+        validation. This is what the autouse fixture relies on for unit tests
+        that synthesise their own prefixes (TEST, PRJ, BBB)."""
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(tmp_path / "missing.yaml"))
+        assert validate_prefix_for_creation("PRJ") == "PRJ"
+        assert validate_prefix_for_creation("TEST") == "TEST"
+        # Two-letter still passes format-only check in lenient mode — there's
+        # no policy to enforce without the file present.
+        assert validate_prefix_for_creation("XY") == "XY"
+
+    def test_load_allowlist_returns_dict_shape(self, monkeypatch, tmp_path):
+        path = _write_allowlist(
+            tmp_path,
+            two_letter={"OM": "Open Moniker", "OP": "Ops"},
+            prefixes={"WBN": "Workbench", "JOB": "Jobs"},
+        )
+        monkeypatch.setenv("TASKS_MCP_ALLOWED_PREFIXES", str(path))
+        loaded = load_allowed_prefixes()
+        assert loaded is not None
+        assert loaded["two_letter_legacy"] == {"OM", "OP"}
+        assert loaded["prefixes"] == {"WBN", "JOB"}
+
+    def test_production_allowlist_still_loads(self, monkeypatch):
+        """Sanity check: the real config file shipped in the repo loads cleanly
+        and contains the well-known prefixes."""
+        # Clear the env override so the default path resolves to the repo's
+        # config/allowed_prefixes.yaml.
+        monkeypatch.delenv("TASKS_MCP_ALLOWED_PREFIXES", raising=False)
+        loaded = load_allowed_prefixes()
+        assert loaded is not None
+        # The two-letter pair is the frozen list.
+        assert "OM" in loaded["two_letter_legacy"]
+        assert "OP" in loaded["two_letter_legacy"]
+        # And the user's well-known active prefixes are in the primary list.
+        assert "WBN" in loaded["prefixes"]
+        assert "JOB" in loaded["prefixes"]
+        # Two-letter codes must NOT also appear in the primary list — that
+        # would be redundant and an invitation to drift.
+        assert not (loaded["two_letter_legacy"] & loaded["prefixes"])
