@@ -31,8 +31,9 @@ PORT = 8765
 # all resolve to ``C:\Windows\System32\config\systemprofile`` unless we
 # override. Mempalace stores its palace + entity registry + config under
 # ``~/.mempalace``, so we pin the user profile to the interactive account
-# that owns the data. Change this if the box's primary account ever moves.
-USER_PROFILE = r"C:\Users\admin"
+# that owns the data. The value is written to the service's registry
+# Environment block by ``mempalace_install_service.py`` at install time.
+USER_PROFILE = os.environ.get("MEMPALACE_USER_PROFILE") or r"C:\Users\admin"
 
 LOG_DIR = Path(USER_PROFILE) / ".mempalace" / "service_logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,7 +47,7 @@ logger = logging.getLogger("mempalace_service")
 
 
 class MempalaceService(win32serviceutil.ServiceFramework):
-    _svc_name_ = "MempalaceMCP"
+    _svc_name_ = "PythonMempalaceMCP"
     _svc_display_name_ = "Python Mempalace MCP server"
     _svc_description_ = f"Mempalace MCP server bound to {HOST}:{PORT} (reach via http://<host>:{PORT}/mcp)"
     _svc_startup_type_ = win32service.SERVICE_AUTO_START

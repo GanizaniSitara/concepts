@@ -18,12 +18,14 @@ Usage:
 from __future__ import annotations
 
 import ctypes
+import os
 import shutil
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
+import winreg
 from pathlib import Path
 
 PYTHON_EXE = Path(r"C:\miniconda3\envs\python312\python.exe")
@@ -32,7 +34,8 @@ PYTHON_EXE = Path(r"C:\miniconda3\envs\python312\python.exe")
 # SCM points at.
 RUNTIME_DIR = Path(r"C:\Tools\mempalace-ops")
 SERVICE_PY = RUNTIME_DIR / "mempalace_service.py"
-SERVICE_NAME = "MempalaceMCP"
+SERVICE_NAME = "PythonMempalaceMCP"
+LEGACY_SERVICE_NAME = "MempalaceMCP"
 HEALTH_URL = "http://127.0.0.1:8765/health"
 
 
@@ -82,6 +85,22 @@ def wait_for_health(url: str, *, attempts: int = 20, delay: float = 0.5) -> bool
     return False
 
 
+def write_service_environment(name: str, env_pairs: dict[str, str]) -> None:
+    """Write ``Environment`` REG_MULTI_SZ under the service's registry key.
+
+    The Service Control Manager prepends these entries to the child process's
+    environment block at start time. Used here to pass the interactive
+    user's profile path to a service that runs as LocalSystem and otherwise
+    has no way to know whose ``~/.mempalace`` to read.
+    """
+    key_path = rf"SYSTEM\CurrentControlSet\Services\{name}"
+    values = [f"{k}={v}" for k, v in env_pairs.items()]
+    with winreg.OpenKey(
+        winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE
+    ) as key:
+        winreg.SetValueEx(key, "Environment", 0, winreg.REG_MULTI_SZ, values)
+
+
 def deploy_to_runtime() -> None:
     """Mirror the sibling source files into ``RUNTIME_DIR`` before install.
 
@@ -121,12 +140,27 @@ def main() -> int:
 
     base = [str(PYTHON_EXE), str(SERVICE_PY)]
 
+    # One-shot rename cleanup: tear down the pre-rename legacy service if
+    # still present. Safe no-op once the old name is gone.
+    if sc_query_exists(LEGACY_SERVICE_NAME):
+        print(f"=== one-shot: removing legacy service {LEGACY_SERVICE_NAME} ===")
+        subprocess.run(["sc.exe", "stop", LEGACY_SERVICE_NAME])
+        time.sleep(2)
+        subprocess.run(["sc.exe", "delete", LEGACY_SERVICE_NAME])
+
     if sc_query_exists(SERVICE_NAME):
         print(f"{SERVICE_NAME} already exists - stopping & removing first.")
         run("stop",   base + ["stop"],   check=False)
         run("remove", base + ["remove"], check=False)
 
     run("install", base + ["--startup", "auto", "install"], check=True)
+
+    user_profile = os.environ.get("USERPROFILE") or str(Path.home())
+    print(f"=== set service env: MEMPALACE_USER_PROFILE={user_profile} ===")
+    write_service_environment(
+        SERVICE_NAME, {"MEMPALACE_USER_PROFILE": user_profile}
+    )
+
     run("start",   base + ["start"],                        check=True)
 
     print("=== verify ===")
