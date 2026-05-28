@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -47,6 +48,7 @@ var (
 	killTimer            = user32.NewProc("KillTimer")
 	getWindowTextLengthW = user32.NewProc("GetWindowTextLengthW")
 	getWindowTextW       = user32.NewProc("GetWindowTextW")
+	setWindowTextW       = user32.NewProc("SetWindowTextW")
 	getKeyState          = user32.NewProc("GetKeyState")
 
 	// gdi32
@@ -57,8 +59,12 @@ var (
 	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 
 	// comdlg32
+	getOpenFileNameW = comdlg32.NewProc("GetOpenFileNameW")
 	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
 	printDlgW        = comdlg32.NewProc("PrintDlgW")
+
+	// shell32
+	shellExecuteW = syscall.NewLazyDLL("shell32.dll").NewProc("ShellExecuteW")
 
 	// gdi32 — printing
 	startDocW     = gdi32.NewProc("StartDocW")
@@ -81,23 +87,27 @@ const (
 	ES_MULTILINE        = 0x0004
 	ES_AUTOVSCROLL      = 0x0040
 	ES_WANTRETURN       = 0x1000
-	ES_READONLY          = 0x0800
-	SM_CXSCREEN          = 0
-	SM_CYSCREEN          = 1
-	IDC_ARROW            = 32512
+	ES_READONLY         = 0x0800
+	SM_CXSCREEN         = 0
+	SM_CYSCREEN         = 1
+	IDC_ARROW           = 32512
 
-	WM_CREATE    = 0x0001
-	WM_DESTROY   = 0x0002
-	WM_SIZE      = 0x0005
-	WM_COMMAND   = 0x0111
-	WM_TIMER     = 0x0113
-	WM_KEYDOWN   = 0x0100
-	WM_SETFONT   = 0x0030
-	WM_SETFOCUS  = 0x0007
-	WM_SETTEXT   = 0x000C
+	WM_CREATE   = 0x0001
+	WM_DESTROY  = 0x0002
+	WM_SIZE     = 0x0005
+	WM_COMMAND  = 0x0111
+	WM_TIMER    = 0x0113
+	WM_KEYDOWN  = 0x0100
+	WM_SETFONT  = 0x0030
+	WM_SETFOCUS = 0x0007
+	WM_SETTEXT  = 0x000C
 
-	EN_CHANGE = 0x0300
-	VK_S      = 0x53
+	EN_CHANGE  = 0x0300
+	VK_S       = 0x53
+	VK_O       = 0x4F
+	VK_E       = 0x45
+	VK_SHIFT   = 0x10
+	VK_CONTROL = 0x11
 
 	EM_SETBKGNDCOLOR = 0x0443
 	EM_SETMARGINS    = 0x00D3
@@ -109,15 +119,15 @@ const (
 	VK_P = 0x50
 
 	// Printing
-	PD_RETURNDC        = 0x00000100
+	PD_RETURNDC                   = 0x00000100
 	PD_USEDEVMODECOPIESANDCOLLATE = 0x00040000
-	EM_FORMATRANGE     = 0x0439
-	LOGPIXELSX         = 88
-	LOGPIXELSY         = 90
-	HORZRES            = 8
-	VERTRES            = 10
-	PHYSICALOFFSETX    = 112
-	PHYSICALOFFSETY    = 113
+	EM_FORMATRANGE                = 0x0439
+	LOGPIXELSX                    = 88
+	LOGPIXELSY                    = 90
+	HORZRES                       = 8
+	VERTRES                       = 10
+	PHYSICALOFFSETX               = 112
+	PHYSICALOFFSETY               = 113
 )
 
 // Helpers
@@ -493,7 +503,7 @@ func escapeRTF(s string) string {
 
 // Global state
 var (
-	hInstance    uintptr
+	hInstance   uintptr
 	mainHwnd    uintptr
 	editorHwnd  uintptr
 	previewHwnd uintptr
@@ -570,13 +580,7 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 0
 
 	case WM_KEYDOWN:
-		state, _, _ := getKeyState.Call(0x11) // VK_CONTROL
-		if int16(state) < 0 && wParam == VK_S {
-			saveFile()
-			return 0
-		}
-		if int16(state) < 0 && wParam == VK_P {
-			printFormatted()
+		if handleShortcut(wParam) {
 			return 0
 		}
 
@@ -609,22 +613,107 @@ func updatePreview() {
 }
 
 // File operations
-func saveFile() {
-	if currentFile == "" {
-		currentFile = showSaveDialog(mainHwnd)
-		if currentFile == "" {
-			return
-		}
+func windowTitle() string {
+	if currentFile != "" {
+		return "TinyMD RichEdit — " + currentFile
 	}
+	return "TinyMD RichEdit Prototype"
+}
+
+func refreshWindowTitle() {
+	title := utf16From(windowTitle())
+	setWindowTextW.Call(mainHwnd, uintptr(unsafe.Pointer(&title[0])))
+}
+
+func editorText() string {
 	length, _, _ := getWindowTextLengthW.Call(editorHwnd)
 	buf := make([]uint16, length+1)
 	getWindowTextW.Call(editorHwnd, uintptr(unsafe.Pointer(&buf[0])), length+1)
-	content := syscall.UTF16ToString(buf)
-	os.WriteFile(currentFile, []byte(content), 0644)
+	return syscall.UTF16ToString(buf)
 }
 
-func showSaveDialog(hwnd uintptr) string {
+func saveFile() {
+	if currentFile == "" {
+		saveFileAs()
+		return
+	}
+	os.WriteFile(currentFile, []byte(editorText()), 0644)
+}
+
+func saveFileAs() {
+	path := showSaveDialog(mainHwnd, currentFile)
+	if path == "" {
+		return
+	}
+	if err := os.WriteFile(path, []byte(editorText()), 0644); err != nil {
+		return
+	}
+	currentFile = path
+	refreshWindowTitle()
+}
+
+func openFile() {
+	path := showOpenDialog(mainHwnd)
+	if path == "" {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	currentFile = path
+	txt := utf16From(string(data))
+	sendMessageW.Call(editorHwnd, WM_SETTEXT, 0, uintptr(unsafe.Pointer(&txt[0])))
+	updatePreview()
+	refreshWindowTitle()
+}
+
+func openInFolder() {
+	if currentFile == "" {
+		return
+	}
+	verb := utf16From("open")
+	exe := utf16From("explorer.exe")
+	params := utf16From(`/select,"` + currentFile + `"`)
+	shellExecuteW.Call(mainHwnd, uintptr(unsafe.Pointer(&verb[0])), uintptr(unsafe.Pointer(&exe[0])), uintptr(unsafe.Pointer(&params[0])), 0, 1)
+}
+
+func showOpenDialog(hwnd uintptr) string {
 	buf := make([]uint16, 260)
+	filter := append(utf16From("Markdown Files (*.md)"), 0)
+	filter = append(filter, utf16From("*.md")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("All Files (*.*)")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("*.*")...)
+	filter = append(filter, 0, 0)
+	title := utf16From("Open")
+
+	const structSize = 152
+	var ofn [structSize]byte
+	*(*uint32)(unsafe.Pointer(&ofn[0])) = structSize
+	*(*uintptr)(unsafe.Pointer(&ofn[8])) = hwnd
+	*(*uintptr)(unsafe.Pointer(&ofn[24])) = uintptr(unsafe.Pointer(&filter[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[44])) = 1
+	*(*uintptr)(unsafe.Pointer(&ofn[48])) = uintptr(unsafe.Pointer(&buf[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[56])) = uint32(len(buf))
+	*(*uintptr)(unsafe.Pointer(&ofn[80])) = uintptr(unsafe.Pointer(&title[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[88])) = 0x00001000 | 0x00000800 | 0x00000004
+
+	ret, _, _ := getOpenFileNameW.Call(uintptr(unsafe.Pointer(&ofn[0])))
+	if ret == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buf)
+}
+
+func showSaveDialog(hwnd uintptr, defaultPath string) string {
+	buf := make([]uint16, 260)
+	defaultName := filepath.Base(defaultPath)
+	if defaultName == "." || defaultName == string(filepath.Separator) {
+		defaultName = "untitled.md"
+	}
+	copy(buf, utf16From(defaultName))
 	filter := append(utf16From("Markdown Files (*.md)"), 0)
 	filter = append(filter, utf16From("*.md")...)
 	filter = append(filter, 0)
@@ -652,6 +741,29 @@ func showSaveDialog(hwnd uintptr) string {
 		return ""
 	}
 	return syscall.UTF16ToString(buf)
+}
+
+func handleShortcut(wParam uintptr) bool {
+	ctrl, _, _ := getKeyState.Call(VK_CONTROL)
+	if int16(ctrl) >= 0 {
+		return false
+	}
+	shift, _, _ := getKeyState.Call(VK_SHIFT)
+	switch {
+	case wParam == VK_O:
+		openFile()
+	case wParam == VK_S && int16(shift) < 0:
+		saveFileAs()
+	case wParam == VK_S:
+		saveFile()
+	case wParam == VK_E:
+		openInFolder()
+	case wParam == VK_P:
+		printFormatted()
+	default:
+		return false
+	}
+	return true
 }
 
 func printFormatted() {
@@ -704,13 +816,13 @@ func printFormatted() {
 		startPage.Call(printerDC)
 
 		var fr [56]byte
-		*(*uintptr)(unsafe.Pointer(&fr[0])) = printerDC  // hdc
-		*(*uintptr)(unsafe.Pointer(&fr[8])) = printerDC  // hdcTarget
+		*(*uintptr)(unsafe.Pointer(&fr[0])) = printerDC // hdc
+		*(*uintptr)(unsafe.Pointer(&fr[8])) = printerDC // hdcTarget
 		// rc (rendering area)
 		*(*int32)(unsafe.Pointer(&fr[16])) = 0        // left
 		*(*int32)(unsafe.Pointer(&fr[20])) = 0        // top
-		*(*int32)(unsafe.Pointer(&fr[24])) = rcRight   // right
-		*(*int32)(unsafe.Pointer(&fr[28])) = rcBottom  // bottom
+		*(*int32)(unsafe.Pointer(&fr[24])) = rcRight  // right
+		*(*int32)(unsafe.Pointer(&fr[28])) = rcBottom // bottom
 		// rcPage (physical page)
 		*(*int32)(unsafe.Pointer(&fr[32])) = 0
 		*(*int32)(unsafe.Pointer(&fr[36])) = 0
@@ -774,11 +886,7 @@ func main() {
 	x := (screenW - w) / 2
 	y := (screenH - h) / 2
 
-	title := "TinyMD RichEdit Prototype"
-	if currentFile != "" {
-		title = "TinyMD RichEdit — " + currentFile
-	}
-	titleU := utf16From(title)
+	titleU := utf16From(windowTitle())
 
 	mainHwnd, _, _ = createWindowExW.Call(
 		0,
@@ -808,7 +916,7 @@ func main() {
 		return
 	}
 
-	// Message loop — intercept Ctrl+S/Ctrl+P before dispatch since
+	// Message loop — intercept shortcuts before dispatch since
 	// the EDIT control has focus and mainWndProc never sees WM_KEYDOWN.
 	var msgBuf [48]byte
 	for {
@@ -819,16 +927,8 @@ func main() {
 		msgID := *(*uint32)(unsafe.Pointer(&msgBuf[8]))
 		wParam := *(*uintptr)(unsafe.Pointer(&msgBuf[16]))
 		if msgID == WM_KEYDOWN {
-			state, _, _ := getKeyState.Call(0x11)
-			if int16(state) < 0 {
-				if wParam == VK_S {
-					saveFile()
-					continue
-				}
-				if wParam == VK_P {
-					printFormatted()
-					continue
-				}
+			if handleShortcut(wParam) {
+				continue
 			}
 		}
 		translateMessage.Call(uintptr(unsafe.Pointer(&msgBuf[0])))

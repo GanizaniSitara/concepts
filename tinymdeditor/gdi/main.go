@@ -22,72 +22,78 @@ import (
 
 // Win32 DLLs and procs
 var (
-	user32 = syscall.NewLazyDLL("user32.dll")
-	gdi32  = syscall.NewLazyDLL("gdi32.dll")
+	user32   = syscall.NewLazyDLL("user32.dll")
+	gdi32    = syscall.NewLazyDLL("gdi32.dll")
 	kernel32 = syscall.NewLazyDLL("kernel32.dll")
 	comdlg32 = syscall.NewLazyDLL("comdlg32.dll")
 
 	// user32
-	registerClassExW    = user32.NewProc("RegisterClassExW")
-	createWindowExW     = user32.NewProc("CreateWindowExW")
-	showWindowProc      = user32.NewProc("ShowWindow")
-	updateWindowProc    = user32.NewProc("UpdateWindow")
-	destroyWindowProc   = user32.NewProc("DestroyWindow")
-	defWindowProcW      = user32.NewProc("DefWindowProcW")
-	getSystemMetrics    = user32.NewProc("GetSystemMetrics")
-	beginPaint          = user32.NewProc("BeginPaint")
-	endPaint            = user32.NewProc("EndPaint")
-	fillRect            = user32.NewProc("FillRect")
-	drawTextW           = user32.NewProc("DrawTextW")
-	loadCursorW         = user32.NewProc("LoadCursorW")
-	getClientRect       = user32.NewProc("GetClientRect")
-	getSysColorBrush    = user32.NewProc("GetSysColorBrush")
-	getMessageW         = user32.NewProc("GetMessageW")
-	translateMessage    = user32.NewProc("TranslateMessage")
-	dispatchMessageW    = user32.NewProc("DispatchMessageW")
-	postQuitMessage     = user32.NewProc("PostQuitMessage")
-	sendMessageW        = user32.NewProc("SendMessageW")
-	moveWindow          = user32.NewProc("MoveWindow")
-	invalidateRect      = user32.NewProc("InvalidateRect")
-	setFocus            = user32.NewProc("SetFocus")
-	setTimer            = user32.NewProc("SetTimer")
-	killTimer           = user32.NewProc("KillTimer")
+	registerClassExW     = user32.NewProc("RegisterClassExW")
+	createWindowExW      = user32.NewProc("CreateWindowExW")
+	showWindowProc       = user32.NewProc("ShowWindow")
+	updateWindowProc     = user32.NewProc("UpdateWindow")
+	destroyWindowProc    = user32.NewProc("DestroyWindow")
+	defWindowProcW       = user32.NewProc("DefWindowProcW")
+	getSystemMetrics     = user32.NewProc("GetSystemMetrics")
+	beginPaint           = user32.NewProc("BeginPaint")
+	endPaint             = user32.NewProc("EndPaint")
+	fillRect             = user32.NewProc("FillRect")
+	drawTextW            = user32.NewProc("DrawTextW")
+	loadCursorW          = user32.NewProc("LoadCursorW")
+	getClientRect        = user32.NewProc("GetClientRect")
+	getSysColorBrush     = user32.NewProc("GetSysColorBrush")
+	getMessageW          = user32.NewProc("GetMessageW")
+	translateMessage     = user32.NewProc("TranslateMessage")
+	dispatchMessageW     = user32.NewProc("DispatchMessageW")
+	postQuitMessage      = user32.NewProc("PostQuitMessage")
+	sendMessageW         = user32.NewProc("SendMessageW")
+	moveWindow           = user32.NewProc("MoveWindow")
+	invalidateRect       = user32.NewProc("InvalidateRect")
+	setFocus             = user32.NewProc("SetFocus")
+	setTimer             = user32.NewProc("SetTimer")
+	killTimer            = user32.NewProc("KillTimer")
 	getWindowTextLengthW = user32.NewProc("GetWindowTextLengthW")
-	getWindowTextW      = user32.NewProc("GetWindowTextW")
-	setScrollInfo       = user32.NewProc("SetScrollInfo")
-	getScrollInfo       = user32.NewProc("GetScrollInfo")
-	getForegroundWin    = user32.NewProc("GetForegroundWindow")
+	getWindowTextW       = user32.NewProc("GetWindowTextW")
+	setWindowTextW       = user32.NewProc("SetWindowTextW")
+	setScrollInfo        = user32.NewProc("SetScrollInfo")
+	getScrollInfo        = user32.NewProc("GetScrollInfo")
+	getForegroundWin     = user32.NewProc("GetForegroundWindow")
+	getKeyState          = user32.NewProc("GetKeyState")
 
 	// gdi32
-	createFontW      = gdi32.NewProc("CreateFontW")
-	selectObject     = gdi32.NewProc("SelectObject")
-	setBkMode        = gdi32.NewProc("SetBkMode")
-	setTextColor     = gdi32.NewProc("SetTextColor")
-	deleteObject     = gdi32.NewProc("DeleteObject")
-	createSolidBrush = gdi32.NewProc("CreateSolidBrush")
-	createPen        = gdi32.NewProc("CreatePen")
-	moveToEx         = gdi32.NewProc("MoveToEx")
-	lineTo           = gdi32.NewProc("LineTo")
-	createCompatibleDC   = gdi32.NewProc("CreateCompatibleDC")
+	createFontW            = gdi32.NewProc("CreateFontW")
+	selectObject           = gdi32.NewProc("SelectObject")
+	setBkMode              = gdi32.NewProc("SetBkMode")
+	setTextColor           = gdi32.NewProc("SetTextColor")
+	deleteObject           = gdi32.NewProc("DeleteObject")
+	createSolidBrush       = gdi32.NewProc("CreateSolidBrush")
+	createPen              = gdi32.NewProc("CreatePen")
+	moveToEx               = gdi32.NewProc("MoveToEx")
+	lineTo                 = gdi32.NewProc("LineTo")
+	createCompatibleDC     = gdi32.NewProc("CreateCompatibleDC")
 	createCompatibleBitmap = gdi32.NewProc("CreateCompatibleBitmap")
-	bitBlt           = gdi32.NewProc("BitBlt")
-	deleteDC         = gdi32.NewProc("DeleteDC")
-	ellipseProc      = gdi32.NewProc("Ellipse")
-	textOutW         = gdi32.NewProc("TextOutW")
-	getTextExtentPoint32W = gdi32.NewProc("GetTextExtentPoint32W")
+	bitBlt                 = gdi32.NewProc("BitBlt")
+	deleteDC               = gdi32.NewProc("DeleteDC")
+	ellipseProc            = gdi32.NewProc("Ellipse")
+	textOutW               = gdi32.NewProc("TextOutW")
+	getTextExtentPoint32W  = gdi32.NewProc("GetTextExtentPoint32W")
 
 	// kernel32
 	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 
 	// comdlg32
+	getOpenFileNameW = comdlg32.NewProc("GetOpenFileNameW")
 	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
 	printDlgW        = comdlg32.NewProc("PrintDlgW")
 
+	// shell32
+	shellExecuteW = syscall.NewLazyDLL("shell32.dll").NewProc("ShellExecuteW")
+
 	// gdi32 — printing
-	startDocW  = gdi32.NewProc("StartDocW")
-	endDoc     = gdi32.NewProc("EndDoc")
-	startPage  = gdi32.NewProc("StartPage")
-	endPage    = gdi32.NewProc("EndPage")
+	startDocW     = gdi32.NewProc("StartDocW")
+	endDoc        = gdi32.NewProc("EndDoc")
+	startPage     = gdi32.NewProc("StartPage")
+	endPage       = gdi32.NewProc("EndPage")
 	getDeviceCaps = gdi32.NewProc("GetDeviceCaps")
 )
 
@@ -104,54 +110,59 @@ const (
 	ES_MULTILINE        = 0x0004
 	ES_AUTOVSCROLL      = 0x0040
 	ES_WANTRETURN       = 0x1000
-	SM_CXSCREEN          = 0
-	SM_CYSCREEN          = 1
-	IDC_ARROW            = 32512
-	CW_USEDEFAULT        = 0x80000000
+	SM_CXSCREEN         = 0
+	SM_CYSCREEN         = 1
+	IDC_ARROW           = 32512
+	CW_USEDEFAULT       = 0x80000000
 
-	WM_CREATE    = 0x0001
-	WM_DESTROY   = 0x0002
-	WM_SIZE      = 0x0005
-	WM_PAINT     = 0x000F
-	WM_COMMAND   = 0x0111
-	WM_TIMER     = 0x0113
-	WM_KEYDOWN   = 0x0100
+	WM_CREATE     = 0x0001
+	WM_DESTROY    = 0x0002
+	WM_SIZE       = 0x0005
+	WM_PAINT      = 0x000F
+	WM_COMMAND    = 0x0111
+	WM_TIMER      = 0x0113
+	WM_KEYDOWN    = 0x0100
 	WM_MOUSEWHEEL = 0x020A
-	WM_VSCROLL   = 0x0115
-	WM_SETFONT   = 0x0030
-	WM_SETFOCUS  = 0x0007
+	WM_VSCROLL    = 0x0115
+	WM_SETFONT    = 0x0030
+	WM_SETFOCUS   = 0x0007
+	WM_SETTEXT    = 0x000C
 	WM_ERASEBKGND = 0x0014
 
 	EN_CHANGE = 0x0300
 
-	VK_S = 0x53
-	VK_P = 0x50
-	VK_TAB = 0x09
+	VK_S       = 0x53
+	VK_P       = 0x50
+	VK_O       = 0x4F
+	VK_E       = 0x45
+	VK_SHIFT   = 0x10
+	VK_CONTROL = 0x11
+	VK_TAB     = 0x09
 
-	DT_WORDBREAK  = 0x0010
-	DT_NOPREFIX   = 0x0800
-	DT_CALCRECT   = 0x0400
-	DT_EXPANDTABS = 0x0040
-	DT_LEFT       = 0x0000
+	DT_WORDBREAK   = 0x0010
+	DT_NOPREFIX    = 0x0800
+	DT_CALCRECT    = 0x0400
+	DT_EXPANDTABS  = 0x0040
+	DT_LEFT        = 0x0000
 	DT_EDITCONTROL = 0x2000
 	DT_SINGLELINE  = 0x0020
 	DT_NOCLIP      = 0x0100
 
 	TRANSPARENT = 1
 
-	SB_VERT      = 1
-	SIF_ALL      = 0x17
-	SIF_POS      = 0x04
-	SIF_RANGE    = 0x01
-	SIF_PAGE     = 0x02
+	SB_VERT             = 1
+	SIF_ALL             = 0x17
+	SIF_POS             = 0x04
+	SIF_RANGE           = 0x01
+	SIF_PAGE            = 0x02
 	SIF_DISABLENOSCROLL = 0x08
 
-	SB_THUMBTRACK  = 5
+	SB_THUMBTRACK    = 5
 	SB_THUMBPOSITION = 4
-	SB_LINEUP      = 0
-	SB_LINEDOWN    = 1
-	SB_PAGEUP      = 2
-	SB_PAGEDOWN    = 3
+	SB_LINEUP        = 0
+	SB_LINEDOWN      = 1
+	SB_PAGEUP        = 2
+	SB_PAGEDOWN      = 3
 
 	SRCCOPY = 0x00CC0020
 
@@ -160,14 +171,14 @@ const (
 	TIMER_DEBOUNCE = 1
 
 	// Printing
-	PD_RETURNDC        = 0x00000100
+	PD_RETURNDC                   = 0x00000100
 	PD_USEDEVMODECOPIESANDCOLLATE = 0x00040000
-	LOGPIXELSX         = 88
-	LOGPIXELSY         = 90
-	HORZRES            = 8
-	VERTRES            = 10
-	PHYSICALOFFSETX    = 112
-	PHYSICALOFFSETY    = 113
+	LOGPIXELSX                    = 88
+	LOGPIXELSY                    = 90
+	HORZRES                       = 8
+	VERTRES                       = 10
+	PHYSICALOFFSETX               = 112
+	PHYSICALOFFSETY               = 113
 )
 
 // Helpers
@@ -611,15 +622,15 @@ func extractInlineRuns(n ast.Node, source []byte) []InlineSpan {
 
 // Global state
 var (
-	hInstance    uintptr
+	hInstance   uintptr
 	mainHwnd    uintptr
 	editorHwnd  uintptr
 	previewHwnd uintptr
 
-	currentFile string
+	currentFile   string
 	currentBlocks []DrawBlock
-	scrollY     int32
-	totalHeight int32
+	scrollY       int32
+	totalHeight   int32
 
 	grayBrush uintptr
 	blueBrush uintptr
@@ -642,7 +653,7 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 		// Set editor margins so text doesn't touch the edges
 		const EM_SETMARGINS = 0x00D3
-		margins := uintptr((10 << 16) | 10) // 10px left and right
+		margins := uintptr((10 << 16) | 10)                      // 10px left and right
 		sendMessageW.Call(editorHwnd, EM_SETMARGINS, 3, margins) // EC_LEFTMARGIN|EC_RIGHTMARGIN = 3
 
 		// Register preview window class
@@ -698,14 +709,7 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 0
 
 	case WM_KEYDOWN:
-		// Ctrl+S
-		state, _, _ := user32.NewProc("GetKeyState").Call(0x11) // VK_CONTROL
-		if int16(state) < 0 && wParam == VK_S {
-			saveFile()
-			return 0
-		}
-		if int16(state) < 0 && wParam == VK_P {
-			printFormatted()
+		if handleShortcut(wParam) {
 			return 0
 		}
 
@@ -1182,10 +1186,10 @@ func updateScrollbar(hwnd uintptr, clientH int32) {
 	var si [28]byte
 	*(*uint32)(unsafe.Pointer(&si[0])) = 28
 	*(*uint32)(unsafe.Pointer(&si[4])) = SIF_RANGE | SIF_PAGE | SIF_POS
-	*(*int32)(unsafe.Pointer(&si[8])) = 0           // nMin
-	*(*int32)(unsafe.Pointer(&si[12])) = totalHeight // nMax
+	*(*int32)(unsafe.Pointer(&si[8])) = 0                 // nMin
+	*(*int32)(unsafe.Pointer(&si[12])) = totalHeight      // nMax
 	*(*uint32)(unsafe.Pointer(&si[16])) = uint32(clientH) // nPage
-	*(*int32)(unsafe.Pointer(&si[20])) = scrollY    // nPos
+	*(*int32)(unsafe.Pointer(&si[20])) = scrollY          // nPos
 	setScrollInfo.Call(hwnd, SB_VERT, uintptr(unsafe.Pointer(&si[0])), 1)
 }
 
@@ -1197,23 +1201,101 @@ func windowTitle() string {
 	return "TinyMD GDI Prototype"
 }
 
-func saveFile() {
-	if currentFile == "" {
-		currentFile = showSaveDialog(mainHwnd)
-		if currentFile == "" {
-			return
-		}
-	}
-	// Get text from editor
+func refreshWindowTitle() {
+	title := utf16From(windowTitle())
+	setWindowTextW.Call(mainHwnd, uintptr(unsafe.Pointer(&title[0])))
+}
+
+func editorText() string {
 	length, _, _ := getWindowTextLengthW.Call(editorHwnd)
 	buf := make([]uint16, length+1)
 	getWindowTextW.Call(editorHwnd, uintptr(unsafe.Pointer(&buf[0])), length+1)
-	text := syscall.UTF16ToString(buf)
-	os.WriteFile(currentFile, []byte(text), 0644)
+	return syscall.UTF16ToString(buf)
 }
 
-func showSaveDialog(hwnd uintptr) string {
+func saveFile() {
+	if currentFile == "" {
+		saveFileAs()
+		return
+	}
+	os.WriteFile(currentFile, []byte(editorText()), 0644)
+}
+
+func saveFileAs() {
+	path := showSaveDialog(mainHwnd, currentFile)
+	if path == "" {
+		return
+	}
+	if err := os.WriteFile(path, []byte(editorText()), 0644); err != nil {
+		return
+	}
+	currentFile = path
+	refreshWindowTitle()
+}
+
+func openFile() {
+	path := showOpenDialog(mainHwnd)
+	if path == "" {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	currentFile = path
+	txt := utf16From(string(data))
+	sendMessageW.Call(editorHwnd, WM_SETTEXT, 0, uintptr(unsafe.Pointer(&txt[0])))
+	updatePreview()
+	refreshWindowTitle()
+}
+
+func openInFolder() {
+	if currentFile == "" {
+		return
+	}
+	verb := utf16From("open")
+	exe := utf16From("explorer.exe")
+	params := utf16From(`/select,"` + currentFile + `"`)
+	shellExecuteW.Call(mainHwnd, uintptr(unsafe.Pointer(&verb[0])), uintptr(unsafe.Pointer(&exe[0])), uintptr(unsafe.Pointer(&params[0])), 0, 1)
+}
+
+func showOpenDialog(hwnd uintptr) string {
 	buf := make([]uint16, 260)
+	filter := append(utf16From("Markdown Files (*.md)"), 0)
+	filter = append(filter, utf16From("*.md")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("All Files (*.*)")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("*.*")...)
+	filter = append(filter, 0, 0)
+	title := utf16From("Open")
+	title = append(title, 0)
+
+	const structSize = 152
+	var ofn [structSize]byte
+	*(*uint32)(unsafe.Pointer(&ofn[0])) = structSize
+	*(*uintptr)(unsafe.Pointer(&ofn[8])) = hwnd
+	*(*uintptr)(unsafe.Pointer(&ofn[24])) = uintptr(unsafe.Pointer(&filter[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[44])) = 1
+	*(*uintptr)(unsafe.Pointer(&ofn[48])) = uintptr(unsafe.Pointer(&buf[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[56])) = uint32(len(buf))
+	*(*uintptr)(unsafe.Pointer(&ofn[80])) = uintptr(unsafe.Pointer(&title[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[88])) = 0x00001000 | 0x00000800 | 0x00000004
+
+	ret, _, _ := getOpenFileNameW.Call(uintptr(unsafe.Pointer(&ofn[0])))
+	if ret == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buf)
+}
+
+func showSaveDialog(hwnd uintptr, defaultPath string) string {
+	buf := make([]uint16, 260)
+	defaultName := filepath.Base(defaultPath)
+	if defaultName == "." || defaultName == string(filepath.Separator) {
+		defaultName = "untitled.md"
+	}
+	copy(buf, utf16From(defaultName))
 	filter := append(utf16From("Markdown Files (*.md)"), 0)
 	filter = append(filter, utf16From("*.md")...)
 	filter = append(filter, 0)
@@ -1243,6 +1325,29 @@ func showSaveDialog(hwnd uintptr) string {
 		return ""
 	}
 	return syscall.UTF16ToString(buf)
+}
+
+func handleShortcut(wParam uintptr) bool {
+	ctrl, _, _ := getKeyState.Call(VK_CONTROL)
+	if int16(ctrl) >= 0 {
+		return false
+	}
+	shift, _, _ := getKeyState.Call(VK_SHIFT)
+	switch {
+	case wParam == VK_O:
+		openFile()
+	case wParam == VK_S && int16(shift) < 0:
+		saveFileAs()
+	case wParam == VK_S:
+		saveFile()
+	case wParam == VK_E:
+		openInFolder()
+	case wParam == VK_P:
+		printFormatted()
+	default:
+		return false
+	}
+	return true
 }
 
 func printFormatted() {
@@ -1696,7 +1801,7 @@ func main() {
 		return
 	}
 
-	// Message loop — intercept Ctrl+S/Ctrl+P before dispatch since
+	// Message loop — intercept shortcuts before dispatch since
 	// the EDIT control has focus and mainWndProc never sees WM_KEYDOWN.
 	var msgBuf [48]byte
 	for {
@@ -1708,16 +1813,8 @@ func main() {
 		msgID := *(*uint32)(unsafe.Pointer(&msgBuf[8]))
 		wParam := *(*uintptr)(unsafe.Pointer(&msgBuf[16]))
 		if msgID == WM_KEYDOWN {
-			state, _, _ := user32.NewProc("GetKeyState").Call(0x11)
-			if int16(state) < 0 {
-				if wParam == VK_S {
-					saveFile()
-					continue
-				}
-				if wParam == VK_P {
-					printFormatted()
-					continue
-				}
+			if handleShortcut(wParam) {
+				continue
 			}
 		}
 		translateMessage.Call(uintptr(unsafe.Pointer(&msgBuf[0])))

@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/jchv/go-webview2"
@@ -70,45 +71,373 @@ func treeJSON(root string) string {
 
 var (
 	comdlg32         = syscall.NewLazyDLL("comdlg32.dll")
+	getOpenFileNameW = comdlg32.NewProc("GetOpenFileNameW")
 	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
 
-	user32              = syscall.NewLazyDLL("user32.dll")
-	getForegroundWin    = user32.NewProc("GetForegroundWindow")
-	registerClassExW    = user32.NewProc("RegisterClassExW")
-	createWindowExW     = user32.NewProc("CreateWindowExW")
-	showWindowProc      = user32.NewProc("ShowWindow")
-	updateWindowProc    = user32.NewProc("UpdateWindow")
-	destroyWindowProc   = user32.NewProc("DestroyWindow")
-	defWindowProcW      = user32.NewProc("DefWindowProcW")
-	getSystemMetrics    = user32.NewProc("GetSystemMetrics")
-	beginPaint          = user32.NewProc("BeginPaint")
-	endPaint            = user32.NewProc("EndPaint")
-	fillRect            = user32.NewProc("FillRect")
-	drawTextW           = user32.NewProc("DrawTextW")
-	loadCursorW         = user32.NewProc("LoadCursorW")
-	getClientRect       = user32.NewProc("GetClientRect")
+	user32            = syscall.NewLazyDLL("user32.dll")
+	getForegroundWin  = user32.NewProc("GetForegroundWindow")
+	registerClassExW  = user32.NewProc("RegisterClassExW")
+	createWindowExW   = user32.NewProc("CreateWindowExW")
+	showWindowProc    = user32.NewProc("ShowWindow")
+	updateWindowProc  = user32.NewProc("UpdateWindow")
+	destroyWindowProc = user32.NewProc("DestroyWindow")
+	defWindowProcW    = user32.NewProc("DefWindowProcW")
+	getSystemMetrics  = user32.NewProc("GetSystemMetrics")
+	beginPaint        = user32.NewProc("BeginPaint")
+	endPaint          = user32.NewProc("EndPaint")
+	fillRect          = user32.NewProc("FillRect")
+	drawTextW         = user32.NewProc("DrawTextW")
+	loadCursorW       = user32.NewProc("LoadCursorW")
+	getClientRect     = user32.NewProc("GetClientRect")
+	getKeyState       = user32.NewProc("GetKeyState")
+	getAsyncKeyState  = user32.NewProc("GetAsyncKeyState")
+	createMenu        = user32.NewProc("CreateMenu")
+	createPopupMenu   = user32.NewProc("CreatePopupMenu")
+	appendMenuW       = user32.NewProc("AppendMenuW")
+	setMenu           = user32.NewProc("SetMenu")
+	drawMenuBar       = user32.NewProc("DrawMenuBar")
+	setWindowLongPtrW = user32.NewProc("SetWindowLongPtrW")
+	callWindowProcW   = user32.NewProc("CallWindowProcW")
+	openClipboard     = user32.NewProc("OpenClipboard")
+	closeClipboard    = user32.NewProc("CloseClipboard")
+	emptyClipboard    = user32.NewProc("EmptyClipboard")
+	getClipboardData  = user32.NewProc("GetClipboardData")
+	setClipboardData  = user32.NewProc("SetClipboardData")
+	isClipboardFormat = user32.NewProc("IsClipboardFormatAvailable")
+	setWindowsHookExW = user32.NewProc("SetWindowsHookExW")
+	callNextHookEx    = user32.NewProc("CallNextHookEx")
+	unhookWindowsHook = user32.NewProc("UnhookWindowsHookEx")
 
-	gdi32          = syscall.NewLazyDLL("gdi32.dll")
-	createFontW    = gdi32.NewProc("CreateFontW")
-	selectObject   = gdi32.NewProc("SelectObject")
-	setBkMode      = gdi32.NewProc("SetBkMode")
-	setTextColor   = gdi32.NewProc("SetTextColor")
-	deleteObject   = gdi32.NewProc("DeleteObject")
+	gdi32            = syscall.NewLazyDLL("gdi32.dll")
+	createFontW      = gdi32.NewProc("CreateFontW")
+	selectObject     = gdi32.NewProc("SelectObject")
+	setBkMode        = gdi32.NewProc("SetBkMode")
+	setTextColor     = gdi32.NewProc("SetTextColor")
+	deleteObject     = gdi32.NewProc("DeleteObject")
 	getSysColorBrush = user32.NewProc("GetSysColorBrush")
 
-	kernel32          = syscall.NewLazyDLL("kernel32.dll")
-	getModuleHandleW  = kernel32.NewProc("GetModuleHandleW")
+	kernel32         = syscall.NewLazyDLL("kernel32.dll")
+	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
+	globalAlloc      = kernel32.NewProc("GlobalAlloc")
+	globalFree       = kernel32.NewProc("GlobalFree")
+	globalLock       = kernel32.NewProc("GlobalLock")
+	globalUnlock     = kernel32.NewProc("GlobalUnlock")
+	globalSize       = kernel32.NewProc("GlobalSize")
+
+	shell32       = syscall.NewLazyDLL("shell32.dll")
+	shellExecuteW = shell32.NewProc("ShellExecuteW")
 )
+
+const (
+	cfUnicodeText = 13
+	gmemMoveable  = 0x0002
+	gmemZeroInit  = 0x0040
+	vkControl     = 0x11
+	vkMenu        = 0x12
+	whKeyboardLL  = 13
+	hcAction      = 0
+	wmKeyDown     = 0x0100
+	wmSysKeyDown  = 0x0104
+	wmCommand     = 0x0111
+	mfString      = 0x0000
+	mfPopup       = 0x0010
+	mfSeparator   = 0x0800
+
+	idFileOpen   = 1001
+	idFileSave   = 1002
+	idFileSaveAs = 1003
+	idFilePrint  = 1004
+	idFileReveal = 1005
+	idFileExit   = 1006
+	idEditUndo   = 1101
+	idEditCut    = 1102
+	idEditCopy   = 1103
+	idEditPaste  = 1104
+	idEditAll    = 1105
+)
+
+var (
+	editorKeyboardHook     uintptr
+	editorKeyboardCallback uintptr
+	menuWndProcCallback    uintptr
+	oldMainWndProc         uintptr
+)
+
+type kbdLLHookStruct struct {
+	VKCode      uint32
+	ScanCode    uint32
+	Flags       uint32
+	Time        uint32
+	DwExtraInfo uintptr
+}
 
 func getHWND() uintptr {
 	hwnd, _, _ := getForegroundWin.Call()
 	return hwnd
 }
 
-func showSaveDialog(hwnd uintptr) string {
+func winCallErr(name string, err error) error {
+	if err != nil && err != syscall.Errno(0) {
+		return fmt.Errorf("%s failed: %w", name, err)
+	}
+	return fmt.Errorf("%s failed", name)
+}
+
+func openClipboardWithRetry(hwnd uintptr) error {
+	var lastErr error
+	for i := 0; i < 20; i++ {
+		ret, _, err := openClipboard.Call(hwnd)
+		if ret != 0 {
+			return nil
+		}
+		lastErr = winCallErr("OpenClipboard", err)
+		time.Sleep(10 * time.Millisecond)
+	}
+	return lastErr
+}
+
+func readClipboardText(hwnd uintptr) (string, error) {
+	available, _, _ := isClipboardFormat.Call(cfUnicodeText)
+	if available == 0 {
+		return "", nil
+	}
+	if err := openClipboardWithRetry(hwnd); err != nil {
+		return "", err
+	}
+	defer closeClipboard.Call()
+
+	handle, _, err := getClipboardData.Call(cfUnicodeText)
+	if handle == 0 {
+		return "", winCallErr("GetClipboardData", err)
+	}
+	ptr, _, err := globalLock.Call(handle)
+	if ptr == 0 {
+		return "", winCallErr("GlobalLock", err)
+	}
+	defer globalUnlock.Call(handle)
+
+	size, _, _ := globalSize.Call(handle)
+	if size == 0 {
+		return "", nil
+	}
+	raw := unsafe.Slice((*uint16)(unsafe.Pointer(ptr)), int(size/2))
+	n := 0
+	for n < len(raw) && raw[n] != 0 {
+		n++
+	}
+	return syscall.UTF16ToString(raw[:n]), nil
+}
+
+func writeClipboardText(hwnd uintptr, text string) error {
+	if hwnd == 0 {
+		return fmt.Errorf("clipboard owner window unavailable")
+	}
+	if err := openClipboardWithRetry(hwnd); err != nil {
+		return err
+	}
+	defer closeClipboard.Call()
+
+	if ret, _, err := emptyClipboard.Call(); ret == 0 {
+		return winCallErr("EmptyClipboard", err)
+	}
+
+	data := utf16From(text)
+	handle, _, err := globalAlloc.Call(gmemMoveable|gmemZeroInit, uintptr(len(data)*2))
+	if handle == 0 {
+		return winCallErr("GlobalAlloc", err)
+	}
+	ptr, _, err := globalLock.Call(handle)
+	if ptr == 0 {
+		globalFree.Call(handle)
+		return winCallErr("GlobalLock", err)
+	}
+	copy(unsafe.Slice((*uint16)(unsafe.Pointer(ptr)), len(data)), data)
+	globalUnlock.Call(handle)
+
+	if ret, _, err := setClipboardData.Call(cfUnicodeText, handle); ret == 0 {
+		globalFree.Call(handle)
+		return winCallErr("SetClipboardData", err)
+	}
+	return nil
+}
+
+func installEditorKeyboardHook(w webview2.WebView) {
+	hwnd := uintptr(w.Window())
+	editorKeyboardCallback = syscall.NewCallback(func(nCode uintptr, wParam uintptr, lParam uintptr) uintptr {
+		if nCode == hcAction && (wParam == wmKeyDown || wParam == wmSysKeyDown) {
+			vk := uintptr((*kbdLLHookStruct)(unsafe.Pointer(lParam)).VKCode)
+			if key, ok := editorShortcutFromKey(vk); ok && foregroundIs(hwnd) {
+				w.Dispatch(func() {
+					w.Eval(fmt.Sprintf("window.tinyMdHandleEditorShortcut && window.tinyMdHandleEditorShortcut(%q);", key))
+				})
+				return 1
+			}
+		}
+		ret, _, _ := callNextHookEx.Call(editorKeyboardHook, uintptr(nCode), wParam, lParam)
+		return ret
+	})
+	editorKeyboardHook, _, _ = setWindowsHookExW.Call(whKeyboardLL, editorKeyboardCallback, 0, 0)
+}
+
+func uninstallEditorKeyboardHook() {
+	if editorKeyboardHook != 0 {
+		unhookWindowsHook.Call(editorKeyboardHook)
+		editorKeyboardHook = 0
+	}
+}
+
+func editorShortcutFromKey(virtualKey uintptr) (string, bool) {
+	ctrl, _, _ := getAsyncKeyState.Call(vkControl)
+	alt, _, _ := getAsyncKeyState.Call(vkMenu)
+	if int16(ctrl) >= 0 || int16(alt) < 0 {
+		return "", false
+	}
+	switch virtualKey {
+	case 'A':
+		return "a", true
+	case 'C':
+		return "c", true
+	case 'V':
+		return "v", true
+	case 'X':
+		return "x", true
+	default:
+		return "", false
+	}
+}
+
+func foregroundIs(hwnd uintptr) bool {
+	foreground, _, _ := getForegroundWin.Call()
+	return foreground == hwnd
+}
+
+func installMainMenu(w webview2.WebView) {
+	hwnd := uintptr(w.Window())
+	menu, _, _ := createMenu.Call()
+	fileMenu, _, _ := createPopupMenu.Call()
+	editMenu, _, _ := createPopupMenu.Call()
+
+	appendMenu(fileMenu, mfString, idFileOpen, "&Open...\tCtrl+O")
+	appendMenu(fileMenu, mfString, idFileSave, "&Save\tCtrl+S")
+	appendMenu(fileMenu, mfString, idFileSaveAs, "Save &As...\tCtrl+Shift+S")
+	appendMenu(fileMenu, mfString, idFilePrint, "&Print...\tCtrl+P")
+	appendMenu(fileMenu, mfSeparator, 0, "")
+	appendMenu(fileMenu, mfString, idFileReveal, "Show in &Folder\tCtrl+E")
+	appendMenu(fileMenu, mfSeparator, 0, "")
+	appendMenu(fileMenu, mfString, idFileExit, "E&xit")
+
+	appendMenu(editMenu, mfString, idEditUndo, "&Undo\tCtrl+Z")
+	appendMenu(editMenu, mfSeparator, 0, "")
+	appendMenu(editMenu, mfString, idEditCut, "Cu&t\tCtrl+X")
+	appendMenu(editMenu, mfString, idEditCopy, "&Copy\tCtrl+C")
+	appendMenu(editMenu, mfString, idEditPaste, "&Paste\tCtrl+V")
+	appendMenu(editMenu, mfSeparator, 0, "")
+	appendMenu(editMenu, mfString, idEditAll, "Select &All\tCtrl+A")
+
+	appendMenu(menu, mfPopup, fileMenu, "&File")
+	appendMenu(menu, mfPopup, editMenu, "&Edit")
+	setMenu.Call(hwnd, menu)
+	drawMenuBar.Call(hwnd)
+	installMenuWndProc(w)
+}
+
+func appendMenu(menu uintptr, flags uintptr, id uintptr, text string) {
+	if flags&mfSeparator != 0 {
+		appendMenuW.Call(menu, flags, 0, 0)
+		return
+	}
+	t := utf16From(text)
+	appendMenuW.Call(menu, flags, id, uintptr(unsafe.Pointer(&t[0])))
+}
+
+func installMenuWndProc(w webview2.WebView) {
+	hwnd := uintptr(w.Window())
+	menuWndProcCallback = syscall.NewCallback(func(hwnd uintptr, msg uintptr, wParam uintptr, lParam uintptr) uintptr {
+		if msg == wmCommand && handleMenuCommand(w, wParam&0xffff) {
+			return 0
+		}
+		ret, _, _ := callWindowProcW.Call(oldMainWndProc, hwnd, msg, wParam, lParam)
+		return ret
+	})
+	oldMainWndProc, _, _ = setWindowLongPtrW.Call(hwnd, ^uintptr(0)-3, menuWndProcCallback)
+}
+
+func handleMenuCommand(w webview2.WebView, id uintptr) bool {
+	var script string
+	switch id {
+	case idFileOpen:
+		script = `window.tinyMdMenuCommand && window.tinyMdMenuCommand("open");`
+	case idFileSave:
+		script = `window.tinyMdMenuCommand && window.tinyMdMenuCommand("save");`
+	case idFileSaveAs:
+		script = `window.tinyMdMenuCommand && window.tinyMdMenuCommand("saveAs");`
+	case idFilePrint:
+		script = `window.tinyMdMenuCommand && window.tinyMdMenuCommand("print");`
+	case idFileReveal:
+		script = `window.tinyMdMenuCommand && window.tinyMdMenuCommand("reveal");`
+	case idFileExit:
+		w.Destroy()
+		return true
+	case idEditUndo:
+		script = `window.tinyMdMenuCommand && window.tinyMdMenuCommand("undo");`
+	case idEditCut:
+		script = `window.tinyMdHandleEditorShortcut && window.tinyMdHandleEditorShortcut("x", true);`
+	case idEditCopy:
+		script = `window.tinyMdHandleEditorShortcut && window.tinyMdHandleEditorShortcut("c", true);`
+	case idEditPaste:
+		script = `window.tinyMdHandleEditorShortcut && window.tinyMdHandleEditorShortcut("v", true);`
+	case idEditAll:
+		script = `window.tinyMdHandleEditorShortcut && window.tinyMdHandleEditorShortcut("a", true);`
+	default:
+		return false
+	}
+	w.Dispatch(func() {
+		w.Eval(script)
+	})
+	return true
+}
+
+func showOpenDialog(hwnd uintptr) string {
 	buf := make([]uint16, 260)
 
-	// Double-null separated filter string
+	filter := append(utf16From("Markdown Files (*.md)"), 0)
+	filter = append(filter, utf16From("*.md")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("All Files (*.*)")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("*.*")...)
+	filter = append(filter, 0, 0)
+
+	title := utf16From("Open")
+	title = append(title, 0)
+
+	const structSize = 152
+	var ofn [structSize]byte
+
+	*(*uint32)(unsafe.Pointer(&ofn[0])) = structSize
+	*(*uintptr)(unsafe.Pointer(&ofn[8])) = hwnd
+	*(*uintptr)(unsafe.Pointer(&ofn[24])) = uintptr(unsafe.Pointer(&filter[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[44])) = 1
+	*(*uintptr)(unsafe.Pointer(&ofn[48])) = uintptr(unsafe.Pointer(&buf[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[56])) = uint32(len(buf))
+	*(*uintptr)(unsafe.Pointer(&ofn[80])) = uintptr(unsafe.Pointer(&title[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[88])) = 0x00001000 | 0x00000800 | 0x00000004
+
+	ret, _, _ := getOpenFileNameW.Call(uintptr(unsafe.Pointer(&ofn[0])))
+	if ret == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buf)
+}
+
+func showSaveDialog(hwnd uintptr, defaultPath string) string {
+	buf := make([]uint16, 260)
+	defaultName := filepath.Base(defaultPath)
+	if defaultName == "." || defaultName == string(filepath.Separator) {
+		defaultName = "untitled.md"
+	}
+	copy(buf, utf16From(defaultName))
+
 	filter := append(utf16From("Markdown Files (*.md)"), 0)
 	filter = append(filter, utf16From("*.md")...)
 	filter = append(filter, 0)
@@ -122,28 +451,17 @@ func showSaveDialog(hwnd uintptr) string {
 	defExt := utf16From("md")
 	defExt = append(defExt, 0)
 
-	// Use a flat byte buffer to avoid Go struct padding issues with OPENFILENAMEW.
-	// OPENFILENAMEW on 64-bit is 152 bytes.
 	const structSize = 152
 	var ofn [structSize]byte
 
-	// lStructSize (offset 0, uint32)
 	*(*uint32)(unsafe.Pointer(&ofn[0])) = structSize
-	// hwndOwner (offset 8, uintptr — after 4 bytes padding on 64-bit)
 	*(*uintptr)(unsafe.Pointer(&ofn[8])) = hwnd
-	// lpstrFilter (offset 24 on 64-bit: 8+8+8)
 	*(*uintptr)(unsafe.Pointer(&ofn[24])) = uintptr(unsafe.Pointer(&filter[0]))
-	// nFilterIndex (offset 44: 24+8+8+4)
 	*(*uint32)(unsafe.Pointer(&ofn[44])) = 1
-	// lpstrFile (offset 48)
 	*(*uintptr)(unsafe.Pointer(&ofn[48])) = uintptr(unsafe.Pointer(&buf[0]))
-	// nMaxFile (offset 56)
 	*(*uint32)(unsafe.Pointer(&ofn[56])) = uint32(len(buf))
-	// lpstrTitle (offset 80: after lpstrFileTitle(72)+nMaxFileTitle(76) region)
 	*(*uintptr)(unsafe.Pointer(&ofn[80])) = uintptr(unsafe.Pointer(&title[0]))
-	// flags (offset 88)
-	*(*uint32)(unsafe.Pointer(&ofn[88])) = 0x00000002 | 0x00000800 // OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST
-	// lpstrDefExt (offset 96: after nFileOffset(92)+nFileExtension(94)+padding)
+	*(*uint32)(unsafe.Pointer(&ofn[88])) = 0x00000002 | 0x00000800
 	*(*uintptr)(unsafe.Pointer(&ofn[96])) = uintptr(unsafe.Pointer(&defExt[0]))
 
 	ret, _, _ := getSaveFileNameW.Call(uintptr(unsafe.Pointer(&ofn[0])))
@@ -151,6 +469,24 @@ func showSaveDialog(hwnd uintptr) string {
 		return ""
 	}
 	return syscall.UTF16ToString(buf)
+}
+
+func revealCurrentFile(hwnd uintptr) bool {
+	if currentFile == "" {
+		return false
+	}
+	verb := utf16From("open")
+	exe := utf16From("explorer.exe")
+	params := utf16From(`/select,"` + currentFile + `"`)
+	shellExecuteW.Call(
+		hwnd,
+		uintptr(unsafe.Pointer(&verb[0])),
+		uintptr(unsafe.Pointer(&exe[0])),
+		uintptr(unsafe.Pointer(&params[0])),
+		0,
+		1,
+	)
+	return true
 }
 
 func utf16From(s string) []uint16 {
@@ -163,11 +499,11 @@ var splashTitle string
 
 func splashWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	const (
-		WM_PAINT   = 0x000F
-		WM_DESTROY = 0x0002
-		TRANSPARENT = 1
-		DT_CENTER   = 0x01
-		DT_VCENTER  = 0x04
+		WM_PAINT      = 0x000F
+		WM_DESTROY    = 0x0002
+		TRANSPARENT   = 1
+		DT_CENTER     = 0x01
+		DT_VCENTER    = 0x04
 		DT_SINGLELINE = 0x20
 		DT_NOPREFIX   = 0x0800
 	)
@@ -267,12 +603,12 @@ func showSplash(title string) uintptr {
 
 	// WNDCLASSEXW struct (80 bytes on 64-bit)
 	var wc [80]byte
-	*(*uint32)(unsafe.Pointer(&wc[0])) = 80                                                 // cbSize
-	*(*uintptr)(unsafe.Pointer(&wc[8])) = syscall.NewCallback(splashWndProc)                 // lpfnWndProc
-	*(*uintptr)(unsafe.Pointer(&wc[48])) = hInstance                                         // hInstance
-	*(*uintptr)(unsafe.Pointer(&wc[56])) = cursor                                            // hCursor
-	*(*uintptr)(unsafe.Pointer(&wc[64])) = 6                                                 // hbrBackground = COLOR_WINDOW+1
-	*(*uintptr)(unsafe.Pointer(&wc[72])) = uintptr(unsafe.Pointer(&className[0]))            // lpszClassName
+	*(*uint32)(unsafe.Pointer(&wc[0])) = 80                                       // cbSize
+	*(*uintptr)(unsafe.Pointer(&wc[8])) = syscall.NewCallback(splashWndProc)      // lpfnWndProc
+	*(*uintptr)(unsafe.Pointer(&wc[48])) = hInstance                              // hInstance
+	*(*uintptr)(unsafe.Pointer(&wc[56])) = cursor                                 // hCursor
+	*(*uintptr)(unsafe.Pointer(&wc[64])) = 6                                      // hbrBackground = COLOR_WINDOW+1
+	*(*uintptr)(unsafe.Pointer(&wc[72])) = uintptr(unsafe.Pointer(&className[0])) // lpszClassName
 
 	registerClassExW.Call(uintptr(unsafe.Pointer(&wc[0])))
 
@@ -350,11 +686,29 @@ func main() {
 		os.Exit(1)
 	}
 	defer w.Destroy()
+	installMainMenu(w)
+	installEditorKeyboardHook(w)
+	defer uninstallEditorKeyboardHook()
 
 	// WebView2 is ready — destroy splash so the real window takes over.
 	destroySplash(splash)
 
 	// Bind Go functions for JS to call
+	w.Bind("goReadClipboard", func() map[string]string {
+		text, err := readClipboardText(getHWND())
+		if err != nil {
+			return map[string]string{"error": err.Error()}
+		}
+		return map[string]string{"text": text}
+	})
+
+	w.Bind("goWriteClipboard", func(text string) string {
+		if err := writeClipboardText(getHWND(), text); err != nil {
+			return "error: " + err.Error()
+		}
+		return "ok"
+	})
+
 	w.Bind("goSaveFile", func(content string) string {
 		if currentFile == "" {
 			return "no file"
@@ -387,14 +741,48 @@ func main() {
 		return map[string]string{"content": string(data), "name": filepath.Base(abs)}
 	})
 
+	w.Bind("goOpenFile", func() map[string]string {
+		path := showOpenDialog(getHWND())
+		if path == "" {
+			return map[string]string{}
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return map[string]string{"error": err.Error()}
+		}
+		currentFile = path
+		w.SetTitle(windowTitle())
+		return map[string]string{"content": string(data), "name": filepath.Base(path)}
+	})
+
 	w.Bind("goShowSaveDialog", func() string {
-		path := showSaveDialog(getHWND())
+		path := showSaveDialog(getHWND(), currentFile)
 		if path == "" {
 			return ""
 		}
 		currentFile = path
 		w.SetTitle(windowTitle())
 		return filepath.Base(path)
+	})
+
+	w.Bind("goSaveFileAs", func(content string) string {
+		path := showSaveDialog(getHWND(), currentFile)
+		if path == "" {
+			return ""
+		}
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			return "error: " + err.Error()
+		}
+		currentFile = path
+		w.SetTitle(windowTitle())
+		return filepath.Base(path)
+	})
+
+	w.Bind("goRevealFile", func() string {
+		if revealCurrentFile(getHWND()) {
+			return "ok"
+		}
+		return "no file"
 	})
 
 	var tree string
@@ -553,7 +941,7 @@ html, body { height:100%; overflow:hidden; font-family: -apple-system, 'Segoe UI
 <div class="toolbar">
   <span class="filename" id="fname">TinyMD</span>
   <span class="saved" id="saved">Saved!</span>
-  <span class="hint">Ctrl+S save · Ctrl+P print</span>
+  <span class="hint">Ctrl+O open · Ctrl+S save · Ctrl+Shift+S save as · Ctrl+E folder · Ctrl+P print</span>
 </div>
 
 <div class="container">
@@ -668,6 +1056,7 @@ document.head.appendChild(sc);
             document.getElementById('editor').value = res.content;
             document.getElementById('fname').textContent = res.name;
             render();
+            document.getElementById('editor').focus();
             if (activeEl) activeEl.classList.remove('active');
             row.classList.add('active');
             activeEl = row;
@@ -695,13 +1084,167 @@ document.head.appendChild(sc);
 // Synchronous init — no async bridge calls, everything is instant
 (function() {
   var editor = document.getElementById('editor');
+  var editorPane = document.querySelector('.editor-pane');
   var savedEl = document.getElementById('saved');
   var fnameEl = document.getElementById('fname');
+  var editorActive = true;
+  function flashStatus(text) {
+    savedEl.textContent = text || 'Saved!';
+    savedEl.classList.add('show');
+    setTimeout(function() { savedEl.classList.remove('show'); savedEl.textContent = 'Saved!'; }, 1500);
+  }
+  function selectedEditorText() {
+    return editor.value.substring(editor.selectionStart || 0, editor.selectionEnd || 0);
+  }
+  function replaceEditorSelection(text) {
+    var start = editor.selectionStart || 0;
+    var end = editor.selectionEnd || 0;
+    if (typeof editor.setRangeText === 'function') {
+      editor.setRangeText(text, start, end, 'end');
+    } else {
+      editor.value = editor.value.substring(0, start) + text + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + text.length;
+    }
+    render();
+  }
+  async function readEditorClipboard() {
+    try {
+      if (typeof goReadClipboard === 'function') {
+        var nativeResult = await goReadClipboard();
+        if (nativeResult && nativeResult.text !== undefined) return nativeResult.text;
+      }
+    } catch (_) {}
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        return await navigator.clipboard.readText();
+      }
+    } catch (_) {}
+    return null;
+  }
+  async function writeEditorClipboard(text) {
+    try {
+      if (typeof goWriteClipboard === 'function') {
+        var nativeResult = await goWriteClipboard(text);
+        if (nativeResult === 'ok') return true;
+      }
+    } catch (_) {}
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+  function editorShortcutKey(e) {
+    if (!e.ctrlKey || e.altKey || e.metaKey) return '';
+    var key = (e.key || '').toLowerCase();
+    return (key === 'a' || key === 'c' || key === 'v' || key === 'x') ? key : '';
+  }
+  async function handleEditorShortcut(key, force) {
+    if (!force && !(editorActive || document.activeElement === editor)) return false;
+    if (key === 'a') {
+      editor.focus();
+      editor.select();
+      return true;
+    }
+    if (key === 'x') {
+      var cutText = selectedEditorText();
+      if (!cutText) return false;
+      await writeEditorClipboard(cutText);
+      replaceEditorSelection('');
+      return true;
+    }
+    if (key === 'c') {
+      var copyText = selectedEditorText();
+      if (!copyText) return false;
+      await writeEditorClipboard(copyText);
+      return true;
+    }
+    if (key === 'v') {
+      editor.focus();
+      var pasteText = await readEditorClipboard();
+      if (pasteText !== null && pasteText !== undefined) replaceEditorSelection(pasteText);
+      return true;
+    }
+    return false;
+  }
+  window.tinyMdHandleEditorShortcut = handleEditorShortcut;
+  async function openDocument() {
+    var opened = await goOpenFile();
+    if (opened && opened.content !== undefined) {
+      editor.value = opened.content;
+      fnameEl.textContent = opened.name;
+      render();
+      editor.focus();
+      flashStatus('Opened');
+    }
+  }
+  async function saveDocumentAs() {
+    var saveAsName = await goSaveFileAs(editor.value);
+    if (saveAsName && saveAsName.indexOf('error:') !== 0) {
+      fnameEl.textContent = saveAsName;
+      flashStatus('Saved!');
+    }
+  }
+  async function saveDocument() {
+    var result = await goSaveFile(editor.value);
+    if (result === 'ok') {
+      flashStatus('Saved!');
+    } else if (result === 'no file') {
+      var name = await goShowSaveDialog();
+      if (name) {
+        fnameEl.textContent = name;
+        var r2 = await goSaveFile(editor.value);
+        if (r2 === 'ok') flashStatus('Saved!');
+      }
+    }
+  }
+  async function revealDocument() {
+    var reveal = await goRevealFile();
+    if (reveal !== 'ok') flashStatus('No file');
+  }
+  function undoEditor() {
+    editor.focus();
+    document.execCommand('undo');
+    render();
+  }
+  window.tinyMdMenuCommand = async function(command) {
+    if (command === 'open') return openDocument();
+    if (command === 'save') return saveDocument();
+    if (command === 'saveAs') return saveDocumentAs();
+    if (command === 'print') return window.print();
+    if (command === 'reveal') return revealDocument();
+    if (command === 'undo') return undoEditor();
+  };
 
   if (_initContent) editor.value = _initContent;
   if (_initFname) fnameEl.textContent = _initFname.replace(/.*[\\\/]/, '');
 
   editor.addEventListener('input', render);
+  editor.addEventListener('focus', function() { editorActive = true; });
+  editorPane.addEventListener('mousedown', function() {
+    editorActive = true;
+    editor.focus();
+  });
+  document.addEventListener('mousedown', function(e) {
+    if (!editorPane.contains(e.target)) editorActive = false;
+  }, true);
+
+  editor.addEventListener('copy', function(e) {
+    var text = selectedEditorText();
+    if (!text || !e.clipboardData) return;
+    e.clipboardData.setData('text/plain', text);
+    e.preventDefault();
+  });
+
+  editor.addEventListener('paste', function(e) {
+    if (!e.clipboardData) return;
+    var text = e.clipboardData.getData('text/plain');
+    if (text === undefined || text === null) return;
+    e.preventDefault();
+    replaceEditorSelection(text);
+  });
 
   editor.addEventListener('keydown', function(e) {
     if (e.key === 'Tab') {
@@ -714,30 +1257,41 @@ document.head.appendChild(sc);
     }
   });
 
-  // Ctrl+S to save — shows native Save As dialog if no file was specified
   document.addEventListener('keydown', async function(e) {
-    if (e.ctrlKey && e.key === 'p') {
+    var key = editorShortcutKey(e);
+    if (!key || !(editorActive || document.activeElement === editor)) return;
+    if ((key === 'c' || key === 'x') && !selectedEditorText()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    await handleEditorShortcut(key);
+  }, true);
+
+  // Top-level shortcuts
+  document.addEventListener('keydown', async function(e) {
+    var key = e.key.toLowerCase();
+    if (e.ctrlKey && key === 'p') {
       e.preventDefault();
       window.print();
       return;
     }
-    if (e.ctrlKey && e.key === 's') {
+    if (e.ctrlKey && key === 'o') {
       e.preventDefault();
-      var result = await goSaveFile(editor.value);
-      if (result === 'ok') {
-        savedEl.classList.add('show');
-        setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
-      } else if (result === 'no file') {
-        var name = await goShowSaveDialog();
-        if (name) {
-          fnameEl.textContent = name;
-          var r2 = await goSaveFile(editor.value);
-          if (r2 === 'ok') {
-            savedEl.classList.add('show');
-            setTimeout(function() { savedEl.classList.remove('show'); }, 1500);
-          }
-        }
-      }
+      await openDocument();
+      return;
+    }
+    if (e.ctrlKey && key === 'e') {
+      e.preventDefault();
+      await revealDocument();
+      return;
+    }
+    if (e.ctrlKey && e.shiftKey && key === 's') {
+      e.preventDefault();
+      await saveDocumentAs();
+      return;
+    }
+    if (e.ctrlKey && key === 's') {
+      e.preventDefault();
+      await saveDocument();
     }
   });
 

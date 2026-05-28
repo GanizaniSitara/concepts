@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -51,6 +52,7 @@ var (
 	killTimer            = user32.NewProc("KillTimer")
 	getWindowTextLengthW = user32.NewProc("GetWindowTextLengthW")
 	getWindowTextW       = user32.NewProc("GetWindowTextW")
+	setWindowTextW       = user32.NewProc("SetWindowTextW")
 	beginPaint           = user32.NewProc("BeginPaint")
 	endPaint             = user32.NewProc("EndPaint")
 	setScrollInfo        = user32.NewProc("SetScrollInfo")
@@ -64,28 +66,32 @@ var (
 	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 
 	// comdlg32
+	getOpenFileNameW = comdlg32.NewProc("GetOpenFileNameW")
 	getSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
 	printDlgW        = comdlg32.NewProc("PrintDlgW")
 
+	// shell32
+	shellExecuteW = syscall.NewLazyDLL("shell32.dll").NewProc("ShellExecuteW")
+
 	// gdi32 — printing
-	startDocW         = gdi32.NewProc("StartDocW")
-	endDoc            = gdi32.NewProc("EndDoc")
-	startPage         = gdi32.NewProc("StartPage")
-	endPage           = gdi32.NewProc("EndPage")
-	getDeviceCaps     = gdi32.NewProc("GetDeviceCaps")
-	deleteDC          = gdi32.NewProc("DeleteDC")
-	selectObject      = gdi32.NewProc("SelectObject")
-	setBkMode         = gdi32.NewProc("SetBkMode")
-	setTextColor      = gdi32.NewProc("SetTextColor")
-	drawTextW         = user32.NewProc("DrawTextW")
-	createSolidBrush  = gdi32.NewProc("CreateSolidBrush")
-	fillRect          = user32.NewProc("FillRect")
-	textOutW          = gdi32.NewProc("TextOutW")
+	startDocW             = gdi32.NewProc("StartDocW")
+	endDoc                = gdi32.NewProc("EndDoc")
+	startPage             = gdi32.NewProc("StartPage")
+	endPage               = gdi32.NewProc("EndPage")
+	getDeviceCaps         = gdi32.NewProc("GetDeviceCaps")
+	deleteDC              = gdi32.NewProc("DeleteDC")
+	selectObject          = gdi32.NewProc("SelectObject")
+	setBkMode             = gdi32.NewProc("SetBkMode")
+	setTextColor          = gdi32.NewProc("SetTextColor")
+	drawTextW             = user32.NewProc("DrawTextW")
+	createSolidBrush      = gdi32.NewProc("CreateSolidBrush")
+	fillRect              = user32.NewProc("FillRect")
+	textOutW              = gdi32.NewProc("TextOutW")
 	getTextExtentPoint32W = gdi32.NewProc("GetTextExtentPoint32W")
-	createPen         = gdi32.NewProc("CreatePen")
-	moveToEx          = gdi32.NewProc("MoveToEx")
-	lineTo            = gdi32.NewProc("LineTo")
-	ellipseProc       = gdi32.NewProc("Ellipse")
+	createPen             = gdi32.NewProc("CreatePen")
+	moveToEx              = gdi32.NewProc("MoveToEx")
+	lineTo                = gdi32.NewProc("LineTo")
+	ellipseProc           = gdi32.NewProc("Ellipse")
 
 	// ole32
 	coInitializeEx = ole32.NewProc("CoInitializeEx")
@@ -108,9 +114,9 @@ const (
 	ES_MULTILINE        = 0x0004
 	ES_AUTOVSCROLL      = 0x0040
 	ES_WANTRETURN       = 0x1000
-	SM_CXSCREEN          = 0
-	SM_CYSCREEN          = 1
-	IDC_ARROW            = 32512
+	SM_CXSCREEN         = 0
+	SM_CYSCREEN         = 1
+	IDC_ARROW           = 32512
 
 	WM_CREATE     = 0x0001
 	WM_DESTROY    = 0x0002
@@ -126,18 +132,22 @@ const (
 	WM_ERASEBKGND = 0x0014
 	WM_SETTEXT    = 0x000C
 
-	EN_CHANGE = 0x0300
-	VK_S      = 0x53
-	VK_P      = 0x50
+	EN_CHANGE  = 0x0300
+	VK_S       = 0x53
+	VK_P       = 0x50
+	VK_O       = 0x4F
+	VK_E       = 0x45
+	VK_SHIFT   = 0x10
+	VK_CONTROL = 0x11
 
-	SB_VERT      = 1
-	SIF_RANGE    = 0x01
-	SIF_PAGE     = 0x02
-	SIF_POS      = 0x04
-	SB_LINEUP    = 0
-	SB_LINEDOWN  = 1
-	SB_PAGEUP    = 2
-	SB_PAGEDOWN  = 3
+	SB_VERT          = 1
+	SIF_RANGE        = 0x01
+	SIF_PAGE         = 0x02
+	SIF_POS          = 0x04
+	SB_LINEUP        = 0
+	SB_LINEDOWN      = 1
+	SB_PAGEUP        = 2
+	SB_PAGEDOWN      = 3
 	SB_THUMBTRACK    = 5
 	SB_THUMBPOSITION = 4
 
@@ -150,37 +160,37 @@ const (
 	D2D1_FACTORY_TYPE_SINGLE_THREADED = 0
 
 	// DWRITE
-	DWRITE_FACTORY_TYPE_SHARED = 0
-	DWRITE_FONT_WEIGHT_NORMAL  = 400
-	DWRITE_FONT_WEIGHT_BOLD    = 700
-	DWRITE_FONT_STYLE_NORMAL   = 0
-	DWRITE_FONT_STYLE_ITALIC   = 1
-	DWRITE_FONT_STRETCH_NORMAL = 5
-	DWRITE_TEXT_ALIGNMENT_LEADING       = 0
-	DWRITE_PARAGRAPH_ALIGNMENT_NEAR     = 0
-	DWRITE_WORD_WRAPPING_WRAP           = 0
+	DWRITE_FACTORY_TYPE_SHARED      = 0
+	DWRITE_FONT_WEIGHT_NORMAL       = 400
+	DWRITE_FONT_WEIGHT_BOLD         = 700
+	DWRITE_FONT_STYLE_NORMAL        = 0
+	DWRITE_FONT_STYLE_ITALIC        = 1
+	DWRITE_FONT_STRETCH_NORMAL      = 5
+	DWRITE_TEXT_ALIGNMENT_LEADING   = 0
+	DWRITE_PARAGRAPH_ALIGNMENT_NEAR = 0
+	DWRITE_WORD_WRAPPING_WRAP       = 0
 
 	// Printing
-	PD_RETURNDC        = 0x00000100
+	PD_RETURNDC                   = 0x00000100
 	PD_USEDEVMODECOPIESANDCOLLATE = 0x00040000
-	LOGPIXELSX         = 88
-	LOGPIXELSY         = 90
-	HORZRES            = 8
-	VERTRES            = 10
-	TRANSPARENT_BK     = 1
-	DT_WORDBREAK       = 0x0010
-	DT_NOPREFIX        = 0x0800
-	DT_CALCRECT        = 0x0400
-	DT_EXPANDTABS      = 0x0040
-	DT_EDITCONTROL     = 0x2000
-	DT_SINGLELINE      = 0x0020
-	DT_NOCLIP          = 0x0100
+	LOGPIXELSX                    = 88
+	LOGPIXELSY                    = 90
+	HORZRES                       = 8
+	VERTRES                       = 10
+	TRANSPARENT_BK                = 1
+	DT_WORDBREAK                  = 0x0010
+	DT_NOPREFIX                   = 0x0800
+	DT_CALCRECT                   = 0x0400
+	DT_EXPANDTABS                 = 0x0040
+	DT_EDITCONTROL                = 0x2000
+	DT_SINGLELINE                 = 0x0020
+	DT_NOCLIP                     = 0x0100
 )
 
 // GUIDs
 var (
-	IID_ID2D1Factory    = guid(0x06152247, 0x6f50, 0x465a, [8]byte{0x92, 0x45, 0x11, 0x8b, 0xfd, 0x3b, 0x60, 0x07})
-	IID_IDWriteFactory  = guid(0xb859ee5a, 0xd838, 0x4b5b, [8]byte{0xa2, 0xe8, 0x1a, 0xdc, 0x7d, 0x93, 0xdb, 0x48})
+	IID_ID2D1Factory   = guid(0x06152247, 0x6f50, 0x465a, [8]byte{0x92, 0x45, 0x11, 0x8b, 0xfd, 0x3b, 0x60, 0x07})
+	IID_IDWriteFactory = guid(0xb859ee5a, 0xd838, 0x4b5b, [8]byte{0xa2, 0xe8, 0x1a, 0xdc, 0x7d, 0x93, 0xdb, 0x48})
 )
 
 func guid(d1 uint32, d2, d3 uint16, d4 [8]byte) [16]byte {
@@ -286,13 +296,13 @@ type LayoutBlock struct {
 	Bold       bool
 	Indent     float32
 	SpaceAbove float32
-	Color      uint32   // ARGB
-	BgColor    uint32   // ARGB, 0 = none
-	BarColor   uint32   // ARGB, 0 = none
+	Color      uint32 // ARGB
+	BgColor    uint32 // ARGB, 0 = none
+	BarColor   uint32 // ARGB, 0 = none
 	Table      *TableData
 	Spans      []InlineSpan
-	Y          float32  // computed during layout
-	Height     float32  // measured height
+	Y          float32 // computed during layout
+	Height     float32 // measured height
 }
 
 // D2D resources (created when render target exists)
@@ -309,12 +319,12 @@ type d2dResources struct {
 	fmtCode uintptr
 
 	// Brushes
-	brushText  uintptr // ID2D1SolidColorBrush
-	brushGray  uintptr
-	brushBlue  uintptr
+	brushText   uintptr // ID2D1SolidColorBrush
+	brushGray   uintptr
+	brushBlue   uintptr
 	brushCodeBg uintptr
-	brushHR    uintptr
-	brushWhite uintptr
+	brushHR     uintptr
+	brushWhite  uintptr
 }
 
 var res d2dResources
@@ -428,9 +438,9 @@ func createDeviceResources(hwnd uintptr) bool {
 	res.fmtBody = createTextFormat(res.dwFactory, "Segoe UI", DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 14)
 	res.fmtCode = createTextFormat(res.dwFactory, "Consolas", DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 13)
 	// Create brushes
-	res.brushText = createBrush(res.renderTarget, 0, 0, 0, 1) // pure black text
-	res.brushGray = createBrush(res.renderTarget, 0.4, 0.4, 0.4, 1)    // gray
-	res.brushBlue = createBrush(res.renderTarget, 0.01, 0.4, 0.84, 1)  // link blue
+	res.brushText = createBrush(res.renderTarget, 0, 0, 0, 1)            // pure black text
+	res.brushGray = createBrush(res.renderTarget, 0.4, 0.4, 0.4, 1)      // gray
+	res.brushBlue = createBrush(res.renderTarget, 0.01, 0.4, 0.84, 1)    // link blue
 	res.brushCodeBg = createBrush(res.renderTarget, 0.94, 0.94, 0.94, 1) // code bg
 	res.brushHR = createBrush(res.renderTarget, 0.78, 0.78, 0.78, 1)     // hr line (darker gray for visibility)
 	res.brushWhite = createBrush(res.renderTarget, 1, 1, 1, 1)           // white bg
@@ -666,7 +676,7 @@ func packTextRange(start, length uint32) uintptr {
 
 // Global state
 var (
-	hInstance    uintptr
+	hInstance   uintptr
 	mainHwnd    uintptr
 	editorHwnd  uintptr
 	previewHwnd uintptr
@@ -1099,7 +1109,7 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 		// Set editor margins (10px left and right)
 		const EM_SETMARGINS = 0x00D3
-		margins := uintptr((10 << 16) | 10) // 10px left and right
+		margins := uintptr((10 << 16) | 10)                      // 10px left and right
 		sendMessageW.Call(editorHwnd, EM_SETMARGINS, 3, margins) // EC_LEFTMARGIN|EC_RIGHTMARGIN = 3
 
 		// Preview (right) — custom D2D window
@@ -1155,13 +1165,7 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 0
 
 	case WM_KEYDOWN:
-		state, _, _ := getKeyState.Call(0x11)
-		if int16(state) < 0 && wParam == VK_S {
-			saveFile()
-			return 0
-		}
-		if int16(state) < 0 && wParam == VK_P {
-			printFormatted()
+		if handleShortcut(wParam) {
 			return 0
 		}
 
@@ -1273,22 +1277,107 @@ func updatePreview() {
 }
 
 // File operations
-func saveFile() {
-	if currentFile == "" {
-		currentFile = showSaveDialog(mainHwnd)
-		if currentFile == "" {
-			return
-		}
+func windowTitle() string {
+	if currentFile != "" {
+		return "TinyMD D2D — " + currentFile
 	}
+	return "TinyMD D2D Prototype"
+}
+
+func refreshWindowTitle() {
+	title := utf16From(windowTitle())
+	setWindowTextW.Call(mainHwnd, uintptr(unsafe.Pointer(&title[0])))
+}
+
+func editorText() string {
 	length, _, _ := getWindowTextLengthW.Call(editorHwnd)
 	buf := make([]uint16, length+1)
 	getWindowTextW.Call(editorHwnd, uintptr(unsafe.Pointer(&buf[0])), length+1)
-	content := syscall.UTF16ToString(buf)
-	os.WriteFile(currentFile, []byte(content), 0644)
+	return syscall.UTF16ToString(buf)
 }
 
-func showSaveDialog(hwnd uintptr) string {
+func saveFile() {
+	if currentFile == "" {
+		saveFileAs()
+		return
+	}
+	os.WriteFile(currentFile, []byte(editorText()), 0644)
+}
+
+func saveFileAs() {
+	path := showSaveDialog(mainHwnd, currentFile)
+	if path == "" {
+		return
+	}
+	if err := os.WriteFile(path, []byte(editorText()), 0644); err != nil {
+		return
+	}
+	currentFile = path
+	refreshWindowTitle()
+}
+
+func openFile() {
+	path := showOpenDialog(mainHwnd)
+	if path == "" {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	currentFile = path
+	txt := utf16From(string(data))
+	sendMessageW.Call(editorHwnd, WM_SETTEXT, 0, uintptr(unsafe.Pointer(&txt[0])))
+	updatePreview()
+	refreshWindowTitle()
+}
+
+func openInFolder() {
+	if currentFile == "" {
+		return
+	}
+	verb := utf16From("open")
+	exe := utf16From("explorer.exe")
+	params := utf16From(`/select,"` + currentFile + `"`)
+	shellExecuteW.Call(mainHwnd, uintptr(unsafe.Pointer(&verb[0])), uintptr(unsafe.Pointer(&exe[0])), uintptr(unsafe.Pointer(&params[0])), 0, 1)
+}
+
+func showOpenDialog(hwnd uintptr) string {
 	buf := make([]uint16, 260)
+	filter := append(utf16From("Markdown Files (*.md)"), 0)
+	filter = append(filter, utf16From("*.md")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("All Files (*.*)")...)
+	filter = append(filter, 0)
+	filter = append(filter, utf16From("*.*")...)
+	filter = append(filter, 0, 0)
+	title := utf16From("Open")
+
+	const structSize = 152
+	var ofn [structSize]byte
+	*(*uint32)(unsafe.Pointer(&ofn[0])) = structSize
+	*(*uintptr)(unsafe.Pointer(&ofn[8])) = hwnd
+	*(*uintptr)(unsafe.Pointer(&ofn[24])) = uintptr(unsafe.Pointer(&filter[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[44])) = 1
+	*(*uintptr)(unsafe.Pointer(&ofn[48])) = uintptr(unsafe.Pointer(&buf[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[56])) = uint32(len(buf))
+	*(*uintptr)(unsafe.Pointer(&ofn[80])) = uintptr(unsafe.Pointer(&title[0]))
+	*(*uint32)(unsafe.Pointer(&ofn[88])) = 0x00001000 | 0x00000800 | 0x00000004
+
+	ret, _, _ := getOpenFileNameW.Call(uintptr(unsafe.Pointer(&ofn[0])))
+	if ret == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buf)
+}
+
+func showSaveDialog(hwnd uintptr, defaultPath string) string {
+	buf := make([]uint16, 260)
+	defaultName := filepath.Base(defaultPath)
+	if defaultName == "." || defaultName == string(filepath.Separator) {
+		defaultName = "untitled.md"
+	}
+	copy(buf, utf16From(defaultName))
 	filter := append(utf16From("Markdown Files (*.md)"), 0)
 	filter = append(filter, utf16From("*.md")...)
 	filter = append(filter, 0)
@@ -1316,6 +1405,29 @@ func showSaveDialog(hwnd uintptr) string {
 		return ""
 	}
 	return syscall.UTF16ToString(buf)
+}
+
+func handleShortcut(wParam uintptr) bool {
+	ctrl, _, _ := getKeyState.Call(VK_CONTROL)
+	if int16(ctrl) >= 0 {
+		return false
+	}
+	shift, _, _ := getKeyState.Call(VK_SHIFT)
+	switch {
+	case wParam == VK_O:
+		openFile()
+	case wParam == VK_S && int16(shift) < 0:
+		saveFileAs()
+	case wParam == VK_S:
+		saveFile()
+	case wParam == VK_E:
+		openInFolder()
+	case wParam == VK_P:
+		printFormatted()
+	default:
+		return false
+	}
+	return true
 }
 
 func makePrintFont(height, weight int32, italic uint32, face string, scale float64) uintptr {
@@ -1771,11 +1883,7 @@ func main() {
 	x := (screenW - w) / 2
 	y := (screenH - h) / 2
 
-	title := "TinyMD Direct2D Prototype"
-	if currentFile != "" {
-		title = "TinyMD D2D — " + currentFile
-	}
-	titleU := utf16From(title)
+	titleU := utf16From(windowTitle())
 
 	mainHwnd, _, _ = createWindowExW.Call(
 		0,
@@ -1805,7 +1913,7 @@ func main() {
 		return
 	}
 
-	// Message loop — intercept Ctrl+S/Ctrl+P before dispatch since
+	// Message loop — intercept shortcuts before dispatch since
 	// the EDIT control has focus and mainWndProc never sees WM_KEYDOWN.
 	var msgBuf [48]byte
 	for {
@@ -1816,16 +1924,8 @@ func main() {
 		msgID := *(*uint32)(unsafe.Pointer(&msgBuf[8]))
 		wParam := *(*uintptr)(unsafe.Pointer(&msgBuf[16]))
 		if msgID == WM_KEYDOWN {
-			state, _, _ := getKeyState.Call(0x11)
-			if int16(state) < 0 {
-				if wParam == VK_S {
-					saveFile()
-					continue
-				}
-				if wParam == VK_P {
-					printFormatted()
-					continue
-				}
+			if handleShortcut(wParam) {
+				continue
 			}
 		}
 		translateMessage.Call(uintptr(unsafe.Pointer(&msgBuf[0])))
