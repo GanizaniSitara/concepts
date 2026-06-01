@@ -19,13 +19,13 @@ It serves a simple dashboard and JSON API on `http://127.0.0.1:8876/` by default
 ## Setup
 
 ```bash
-./setup.sh
+python3 setup_ai_usage_monitor.py
 ```
 
 To launch immediately:
 
 ```bash
-./setup.sh --run
+python3 setup_ai_usage_monitor.py --run
 ```
 
 ## Run
