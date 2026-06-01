@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Review</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+    body {
+      margin: 0;
+      padding: 2rem;
+      background: Canvas;
+      color: CanvasText;
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.75rem;
+      margin: 0 0 1rem;
+    }
+    code,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    }
+    pre {
+      border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas);
+      border-radius: 6px;
+      overflow: auto;
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>AI Review</h1>
+    <p>Registered repositories are loaded from the local installer config.</p>
+    <pre id="config">Loading...</pre>
+  </main>
+  <script>
+    async function loadConfig() {
+      const target = document.getElementById("config");
+      try {
+        const response = await fetch("/config.json");
+        const data = await response.json();
+        target.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        target.textContent = String(error);
+      }
+    }
+    loadConfig();
+  </script>
+</body>
+</html>
