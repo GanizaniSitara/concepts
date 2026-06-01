@@ -50,6 +50,13 @@ var (
 	getWindowTextW       = user32.NewProc("GetWindowTextW")
 	setWindowTextW       = user32.NewProc("SetWindowTextW")
 	getKeyState          = user32.NewProc("GetKeyState")
+	destroyWindowProc    = user32.NewProc("DestroyWindow")
+	createMenu           = user32.NewProc("CreateMenu")
+	createPopupMenu      = user32.NewProc("CreatePopupMenu")
+	appendMenuW          = user32.NewProc("AppendMenuW")
+	setMenu              = user32.NewProc("SetMenu")
+	drawMenuBar          = user32.NewProc("DrawMenuBar")
+	messageBoxW          = user32.NewProc("MessageBoxW")
 
 	// gdi32
 	createFontW  = gdi32.NewProc("CreateFontW")
@@ -101,8 +108,16 @@ const (
 	WM_SETFONT  = 0x0030
 	WM_SETFOCUS = 0x0007
 	WM_SETTEXT  = 0x000C
+	WM_CUT      = 0x0300
+	WM_COPY     = 0x0301
+	WM_PASTE    = 0x0302
+	WM_UNDO     = 0x0304
 
 	EN_CHANGE  = 0x0300
+	VK_A       = 0x41
+	VK_C       = 0x43
+	VK_V       = 0x56
+	VK_X       = 0x58
 	VK_S       = 0x53
 	VK_O       = 0x4F
 	VK_E       = 0x45
@@ -111,12 +126,32 @@ const (
 
 	EM_SETBKGNDCOLOR = 0x0443
 	EM_SETMARGINS    = 0x00D3
+	EM_SETSEL        = 0x00B1
 	EC_LEFTMARGIN    = 0x0001
 	EC_RIGHTMARGIN   = 0x0002
 
 	TIMER_DEBOUNCE = 1
 
 	VK_P = 0x50
+
+	mfString    = 0x0000
+	mfPopup     = 0x0010
+	mfSeparator = 0x0800
+	mbOk        = 0x0000
+	mbInfo      = 0x0040
+
+	idFileOpen   = 1001
+	idFileSave   = 1002
+	idFileSaveAs = 1003
+	idFilePrint  = 1004
+	idFileReveal = 1005
+	idFileExit   = 1006
+	idEditUndo   = 1101
+	idEditCut    = 1102
+	idEditCopy   = 1103
+	idEditPaste  = 1104
+	idEditAll    = 1105
+	idHelpAbout  = 1201
 
 	// Printing
 	PD_RETURNDC                   = 0x00000100
@@ -144,6 +179,88 @@ func utf16Ptr(s string) *uint16 {
 func loword(v uintptr) uint16 { return uint16(v & 0xFFFF) }
 func hiword(v uintptr) uint16 { return uint16((v >> 16) & 0xFFFF) }
 
+func installMainMenu(hwnd uintptr) {
+	menu, _, _ := createMenu.Call()
+	fileMenu, _, _ := createPopupMenu.Call()
+	editMenu, _, _ := createPopupMenu.Call()
+	helpMenu, _, _ := createPopupMenu.Call()
+
+	appendMenu(fileMenu, mfString, idFileOpen, "&Open...\tCtrl+O")
+	appendMenu(fileMenu, mfString, idFileSave, "&Save\tCtrl+S")
+	appendMenu(fileMenu, mfString, idFileSaveAs, "Save &As...\tCtrl+Shift+S")
+	appendMenu(fileMenu, mfString, idFilePrint, "&Print...\tCtrl+P")
+	appendMenu(fileMenu, mfSeparator, 0, "")
+	appendMenu(fileMenu, mfString, idFileReveal, "Show in &Folder\tCtrl+E")
+	appendMenu(fileMenu, mfSeparator, 0, "")
+	appendMenu(fileMenu, mfString, idFileExit, "E&xit")
+
+	appendMenu(editMenu, mfString, idEditUndo, "&Undo\tCtrl+Z")
+	appendMenu(editMenu, mfSeparator, 0, "")
+	appendMenu(editMenu, mfString, idEditCut, "Cu&t\tCtrl+X")
+	appendMenu(editMenu, mfString, idEditCopy, "&Copy\tCtrl+C")
+	appendMenu(editMenu, mfString, idEditPaste, "&Paste\tCtrl+V")
+	appendMenu(editMenu, mfSeparator, 0, "")
+	appendMenu(editMenu, mfString, idEditAll, "Select &All\tCtrl+A")
+
+	appendMenu(helpMenu, mfString, idHelpAbout, "&About TinyMD")
+
+	appendMenu(menu, mfPopup, fileMenu, "&File")
+	appendMenu(menu, mfPopup, editMenu, "&Edit")
+	appendMenu(menu, mfPopup, helpMenu, "&Help")
+	setMenu.Call(hwnd, menu)
+	drawMenuBar.Call(hwnd)
+}
+
+func appendMenu(menu uintptr, flags uintptr, id uintptr, text string) {
+	if flags&mfSeparator != 0 {
+		appendMenuW.Call(menu, flags, 0, 0)
+		return
+	}
+	t := utf16From(text)
+	appendMenuW.Call(menu, flags, id, uintptr(unsafe.Pointer(&t[0])))
+}
+
+func handleMenuCommand(id uintptr) bool {
+	switch id {
+	case idFileOpen:
+		openFile()
+	case idFileSave:
+		saveFile()
+	case idFileSaveAs:
+		saveFileAs()
+	case idFilePrint:
+		printFormatted()
+	case idFileReveal:
+		openInFolder()
+	case idFileExit:
+		destroyWindowProc.Call(mainHwnd)
+	case idEditUndo:
+		sendMessageW.Call(editorHwnd, WM_UNDO, 0, 0)
+		updatePreview()
+	case idEditCut:
+		sendMessageW.Call(editorHwnd, WM_CUT, 0, 0)
+		updatePreview()
+	case idEditCopy:
+		sendMessageW.Call(editorHwnd, WM_COPY, 0, 0)
+	case idEditPaste:
+		sendMessageW.Call(editorHwnd, WM_PASTE, 0, 0)
+		updatePreview()
+	case idEditAll:
+		sendMessageW.Call(editorHwnd, EM_SETSEL, 0, ^uintptr(0))
+	case idHelpAbout:
+		showAboutDialog()
+	default:
+		return false
+	}
+	return true
+}
+
+func showAboutDialog() {
+	text := utf16From("TinyMD RichEdit\nMarkdown editor for Windows.")
+	title := utf16From("About TinyMD")
+	messageBoxW.Call(mainHwnd, uintptr(unsafe.Pointer(&text[0])), uintptr(unsafe.Pointer(&title[0])), mbOk|mbInfo)
+}
+
 // Use EM_SETTEXTEX to load RTF directly (no callback needed)
 const EM_SETTEXTEX = 0x0461
 
@@ -159,12 +276,13 @@ func setRTFContent(hwnd uintptr, rtfData string) {
 
 // RTF generation from goldmark AST
 // Color table indices (1-based):
-//   1 = dark text (#222222)
-//   2 = blue for blockquote border (#0366D6)
-//   3 = gray text for blockquotes (#666666)
-//   4 = code bg gray (#D0D0D0)
-//   5 = hr border gray (#B4B4B4)
-//   6 = blockquote bg (#F6F8FA)
+//
+//	1 = dark text (#222222)
+//	2 = blue for blockquote border (#0366D6)
+//	3 = gray text for blockquotes (#666666)
+//	4 = code bg gray (#D0D0D0)
+//	5 = hr border gray (#B4B4B4)
+//	6 = blockquote bg (#F6F8FA)
 const rtfHeader = `{\rtf1\ansi\deff0` +
 	`{\fonttbl{\f0\fswiss Segoe UI;}{\f1\fmodern\fcharset0 Consolas;}}` +
 	`{\colortbl;\red34\green34\blue34;\red3\green102\blue214;\red102\green102\blue102;\red208\green208\blue208;\red180\green180\blue180;\red246\green248\blue250;}` +
@@ -554,6 +672,7 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		// Set left/right margins (~30px each) on preview pane
 		margins := uintptr((30 << 16) | 30) // HIWORD=right, LOWORD=left
 		sendMessageW.Call(previewHwnd, EM_SETMARGINS, EC_LEFTMARGIN|EC_RIGHTMARGIN, margins)
+		installMainMenu(hwnd)
 
 		return 0
 
@@ -569,6 +688,9 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	case WM_COMMAND:
 		if hiword(wParam) == EN_CHANGE && loword(wParam) == 1 {
 			setTimer.Call(hwnd, TIMER_DEBOUNCE, 50, 0)
+		}
+		if handleMenuCommand(uintptr(loword(wParam))) {
+			return 0
 		}
 		return 0
 
@@ -750,6 +872,16 @@ func handleShortcut(wParam uintptr) bool {
 	}
 	shift, _, _ := getKeyState.Call(VK_SHIFT)
 	switch {
+	case wParam == VK_A:
+		sendMessageW.Call(editorHwnd, EM_SETSEL, 0, ^uintptr(0))
+	case wParam == VK_C:
+		sendMessageW.Call(editorHwnd, WM_COPY, 0, 0)
+	case wParam == VK_V:
+		sendMessageW.Call(editorHwnd, WM_PASTE, 0, 0)
+		updatePreview()
+	case wParam == VK_X:
+		sendMessageW.Call(editorHwnd, WM_CUT, 0, 0)
+		updatePreview()
 	case wParam == VK_O:
 		openFile()
 	case wParam == VK_S && int16(shift) < 0:

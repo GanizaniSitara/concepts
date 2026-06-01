@@ -57,6 +57,13 @@ var (
 	endPaint             = user32.NewProc("EndPaint")
 	setScrollInfo        = user32.NewProc("SetScrollInfo")
 	getKeyState          = user32.NewProc("GetKeyState")
+	destroyWindowProc    = user32.NewProc("DestroyWindow")
+	createMenu           = user32.NewProc("CreateMenu")
+	createPopupMenu      = user32.NewProc("CreatePopupMenu")
+	appendMenuW          = user32.NewProc("AppendMenuW")
+	setMenu              = user32.NewProc("SetMenu")
+	drawMenuBar          = user32.NewProc("DrawMenuBar")
+	messageBoxW          = user32.NewProc("MessageBoxW")
 
 	// gdi32
 	createFontW  = gdi32.NewProc("CreateFontW")
@@ -131,14 +138,43 @@ const (
 	WM_SETFOCUS   = 0x0007
 	WM_ERASEBKGND = 0x0014
 	WM_SETTEXT    = 0x000C
+	WM_CUT        = 0x0300
+	WM_COPY       = 0x0301
+	WM_PASTE      = 0x0302
+	WM_UNDO       = 0x0304
 
 	EN_CHANGE  = 0x0300
+	VK_A       = 0x41
+	VK_C       = 0x43
+	VK_V       = 0x56
+	VK_X       = 0x58
 	VK_S       = 0x53
 	VK_P       = 0x50
 	VK_O       = 0x4F
 	VK_E       = 0x45
 	VK_SHIFT   = 0x10
 	VK_CONTROL = 0x11
+
+	EM_SETSEL = 0x00B1
+
+	mfString    = 0x0000
+	mfPopup     = 0x0010
+	mfSeparator = 0x0800
+	mbOk        = 0x0000
+	mbInfo      = 0x0040
+
+	idFileOpen   = 1001
+	idFileSave   = 1002
+	idFileSaveAs = 1003
+	idFilePrint  = 1004
+	idFileReveal = 1005
+	idFileExit   = 1006
+	idEditUndo   = 1101
+	idEditCut    = 1102
+	idEditCopy   = 1103
+	idEditPaste  = 1104
+	idEditAll    = 1105
+	idHelpAbout  = 1201
 
 	SB_VERT          = 1
 	SIF_RANGE        = 0x01
@@ -215,6 +251,88 @@ func utf16Ptr(s string) *uint16 {
 
 func loword(v uintptr) uint16 { return uint16(v & 0xFFFF) }
 func hiword(v uintptr) uint16 { return uint16((v >> 16) & 0xFFFF) }
+
+func installMainMenu(hwnd uintptr) {
+	menu, _, _ := createMenu.Call()
+	fileMenu, _, _ := createPopupMenu.Call()
+	editMenu, _, _ := createPopupMenu.Call()
+	helpMenu, _, _ := createPopupMenu.Call()
+
+	appendMenu(fileMenu, mfString, idFileOpen, "&Open...\tCtrl+O")
+	appendMenu(fileMenu, mfString, idFileSave, "&Save\tCtrl+S")
+	appendMenu(fileMenu, mfString, idFileSaveAs, "Save &As...\tCtrl+Shift+S")
+	appendMenu(fileMenu, mfString, idFilePrint, "&Print...\tCtrl+P")
+	appendMenu(fileMenu, mfSeparator, 0, "")
+	appendMenu(fileMenu, mfString, idFileReveal, "Show in &Folder\tCtrl+E")
+	appendMenu(fileMenu, mfSeparator, 0, "")
+	appendMenu(fileMenu, mfString, idFileExit, "E&xit")
+
+	appendMenu(editMenu, mfString, idEditUndo, "&Undo\tCtrl+Z")
+	appendMenu(editMenu, mfSeparator, 0, "")
+	appendMenu(editMenu, mfString, idEditCut, "Cu&t\tCtrl+X")
+	appendMenu(editMenu, mfString, idEditCopy, "&Copy\tCtrl+C")
+	appendMenu(editMenu, mfString, idEditPaste, "&Paste\tCtrl+V")
+	appendMenu(editMenu, mfSeparator, 0, "")
+	appendMenu(editMenu, mfString, idEditAll, "Select &All\tCtrl+A")
+
+	appendMenu(helpMenu, mfString, idHelpAbout, "&About TinyMD")
+
+	appendMenu(menu, mfPopup, fileMenu, "&File")
+	appendMenu(menu, mfPopup, editMenu, "&Edit")
+	appendMenu(menu, mfPopup, helpMenu, "&Help")
+	setMenu.Call(hwnd, menu)
+	drawMenuBar.Call(hwnd)
+}
+
+func appendMenu(menu uintptr, flags uintptr, id uintptr, text string) {
+	if flags&mfSeparator != 0 {
+		appendMenuW.Call(menu, flags, 0, 0)
+		return
+	}
+	t := utf16From(text)
+	appendMenuW.Call(menu, flags, id, uintptr(unsafe.Pointer(&t[0])))
+}
+
+func handleMenuCommand(id uintptr) bool {
+	switch id {
+	case idFileOpen:
+		openFile()
+	case idFileSave:
+		saveFile()
+	case idFileSaveAs:
+		saveFileAs()
+	case idFilePrint:
+		printFormatted()
+	case idFileReveal:
+		openInFolder()
+	case idFileExit:
+		destroyWindowProc.Call(mainHwnd)
+	case idEditUndo:
+		sendMessageW.Call(editorHwnd, WM_UNDO, 0, 0)
+		updatePreview()
+	case idEditCut:
+		sendMessageW.Call(editorHwnd, WM_CUT, 0, 0)
+		updatePreview()
+	case idEditCopy:
+		sendMessageW.Call(editorHwnd, WM_COPY, 0, 0)
+	case idEditPaste:
+		sendMessageW.Call(editorHwnd, WM_PASTE, 0, 0)
+		updatePreview()
+	case idEditAll:
+		sendMessageW.Call(editorHwnd, EM_SETSEL, 0, ^uintptr(0))
+	case idHelpAbout:
+		showAboutDialog()
+	default:
+		return false
+	}
+	return true
+}
+
+func showAboutDialog() {
+	text := utf16From("TinyMD Direct2D\nMarkdown editor for Windows.")
+	title := utf16From("About TinyMD")
+	messageBoxW.Call(mainHwnd, uintptr(unsafe.Pointer(&text[0])), uintptr(unsafe.Pointer(&title[0])), mbOk|mbInfo)
+}
 
 // COM vtable call helper
 func comCall(obj uintptr, methodIndex int, args ...uintptr) uintptr {
@@ -1134,6 +1252,7 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 		// Initialize D2D with preview window
 		initD2D(previewHwnd)
+		installMainMenu(hwnd)
 
 		return 0
 
@@ -1154,6 +1273,9 @@ func mainWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	case WM_COMMAND:
 		if hiword(wParam) == EN_CHANGE && loword(wParam) == 1 {
 			setTimer.Call(hwnd, TIMER_DEBOUNCE, 50, 0)
+		}
+		if handleMenuCommand(uintptr(loword(wParam))) {
+			return 0
 		}
 		return 0
 
@@ -1414,6 +1536,16 @@ func handleShortcut(wParam uintptr) bool {
 	}
 	shift, _, _ := getKeyState.Call(VK_SHIFT)
 	switch {
+	case wParam == VK_A:
+		sendMessageW.Call(editorHwnd, EM_SETSEL, 0, ^uintptr(0))
+	case wParam == VK_C:
+		sendMessageW.Call(editorHwnd, WM_COPY, 0, 0)
+	case wParam == VK_V:
+		sendMessageW.Call(editorHwnd, WM_PASTE, 0, 0)
+		updatePreview()
+	case wParam == VK_X:
+		sendMessageW.Call(editorHwnd, WM_CUT, 0, 0)
+		updatePreview()
 	case wParam == VK_O:
 		openFile()
 	case wParam == VK_S && int16(shift) < 0:

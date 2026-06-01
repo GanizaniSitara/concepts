@@ -98,6 +98,7 @@ var (
 	drawMenuBar       = user32.NewProc("DrawMenuBar")
 	setWindowLongPtrW = user32.NewProc("SetWindowLongPtrW")
 	callWindowProcW   = user32.NewProc("CallWindowProcW")
+	messageBoxW       = user32.NewProc("MessageBoxW")
 	openClipboard     = user32.NewProc("OpenClipboard")
 	closeClipboard    = user32.NewProc("CloseClipboard")
 	emptyClipboard    = user32.NewProc("EmptyClipboard")
@@ -142,6 +143,8 @@ const (
 	mfString      = 0x0000
 	mfPopup       = 0x0010
 	mfSeparator   = 0x0800
+	mbOk          = 0x0000
+	mbInfo        = 0x0040
 
 	idFileOpen   = 1001
 	idFileSave   = 1002
@@ -154,6 +157,7 @@ const (
 	idEditCopy   = 1103
 	idEditPaste  = 1104
 	idEditAll    = 1105
+	idHelpAbout  = 1201
 )
 
 var (
@@ -316,6 +320,7 @@ func installMainMenu(w webview2.WebView) {
 	menu, _, _ := createMenu.Call()
 	fileMenu, _, _ := createPopupMenu.Call()
 	editMenu, _, _ := createPopupMenu.Call()
+	helpMenu, _, _ := createPopupMenu.Call()
 
 	appendMenu(fileMenu, mfString, idFileOpen, "&Open...\tCtrl+O")
 	appendMenu(fileMenu, mfString, idFileSave, "&Save\tCtrl+S")
@@ -334,8 +339,11 @@ func installMainMenu(w webview2.WebView) {
 	appendMenu(editMenu, mfSeparator, 0, "")
 	appendMenu(editMenu, mfString, idEditAll, "Select &All\tCtrl+A")
 
+	appendMenu(helpMenu, mfString, idHelpAbout, "&About TinyMD")
+
 	appendMenu(menu, mfPopup, fileMenu, "&File")
 	appendMenu(menu, mfPopup, editMenu, "&Edit")
+	appendMenu(menu, mfPopup, helpMenu, "&Help")
 	setMenu.Call(hwnd, menu)
 	drawMenuBar.Call(hwnd)
 	installMenuWndProc(w)
@@ -388,6 +396,9 @@ func handleMenuCommand(w webview2.WebView, id uintptr) bool {
 		script = `window.tinyMdHandleEditorShortcut && window.tinyMdHandleEditorShortcut("v", true);`
 	case idEditAll:
 		script = `window.tinyMdHandleEditorShortcut && window.tinyMdHandleEditorShortcut("a", true);`
+	case idHelpAbout:
+		showAboutDialog(uintptr(w.Window()))
+		return true
 	default:
 		return false
 	}
@@ -395,6 +406,12 @@ func handleMenuCommand(w webview2.WebView, id uintptr) bool {
 		w.Eval(script)
 	})
 	return true
+}
+
+func showAboutDialog(hwnd uintptr) {
+	text := utf16From("TinyMD\nMarkdown editor for Windows.")
+	title := utf16From("About TinyMD")
+	messageBoxW.Call(hwnd, uintptr(unsafe.Pointer(&text[0])), uintptr(unsafe.Pointer(&title[0])), mbOk|mbInfo)
 }
 
 func showOpenDialog(hwnd uintptr) string {
