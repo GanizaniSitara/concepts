@@ -1,0 +1,33 @@
+{
+  "title": "Data domain architecture",
+  "flow": "up",
+  "layers": [
+    {
+      "label": "Consumers",
+      "cells": ["Analytics\nand BI", "ML / data\nscience", "Regulatory\nreporting", "Data\nAPIs"]
+    },
+    {
+      "label": "Data domains",
+      "kind": "domains",
+      "cells": [
+        {"title": "Customer domain", "products": ["Profiles", "Segments"]},
+        {"title": "Account domain", "products": ["Balances", "Statements"]},
+        {"title": "Payments domain", "products": ["Transactions", "Refunds"]},
+        {"title": "Risk domain", "products": ["Exposure", "Limits"]}
+      ]
+    },
+    {
+      "label": "Sources",
+      "cells": ["Core\nbanking", "CRM", "Payments\ngateway", "Market\ndata"]
+    }
+  ],
+  "foundation": "Self-serve data platform  -  pipelines  ·  storage  ·  catalog  ·  compute",
+  "side": {
+    "title": "Federated\ngovernance\nand catalog",
+    "items": ["Policies", "Lineage", "Access control"]
+  },
+  "stage_labels": {
+    "Sources->Data domains": "ingest",
+    "Data domains->Consumers": "publish data products"
+  }
+}

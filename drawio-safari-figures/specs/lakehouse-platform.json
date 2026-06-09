@@ -1,0 +1,27 @@
+{
+  "title": "Lakehouse platform architecture",
+  "flow": "up",
+  "layers": [
+    {
+      "label": "Consumption",
+      "cells": ["BI\ndashboards", "Data\nscience", "Ad-hoc\nSQL", "Data\nAPIs"]
+    },
+    {
+      "label": "Curated marts",
+      "cells": ["Sales\nmart", "Finance\nmart", "Risk\nmart", "Customer\nmart"]
+    },
+    {
+      "label": "Ingestion",
+      "cells": ["Batch\nloads", "CDC\nstreams", "Event\nstreams", "File\ndrops"]
+    }
+  ],
+  "foundation": "Lakehouse storage  -  open table format  ·  catalog  ·  elastic compute",
+  "side": {
+    "title": "Platform\ngovernance",
+    "items": ["Access", "Quality", "Cost"]
+  },
+  "stage_labels": {
+    "Ingestion->Curated marts": "model",
+    "Curated marts->Consumption": "serve"
+  }
+}
